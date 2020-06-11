@@ -1,0 +1,7 @@
+bin
+build
+.vscode/
+runctags.sh
+tags
+cxwbuild.sh
+dep
