@@ -28,7 +28,7 @@ namespace cx
 
     inline void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window)
     {
-        auto mouse_button = 1; // left mouse button, 2 middle, 3 right
+        auto mouse_button = 1; // left mouse button, 2 middle, 3 right, MouseModMask is alt + mouse click
         auto PRESS_AND_RELEASE_MASK = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE;
         while (mouse_button < 4) {
             auto ck = xcb_grab_button_checked(conn, 0, window, PRESS_AND_RELEASE_MASK, CXGRABMODE, CXGRABMODE, window, XCB_NONE,
@@ -113,7 +113,6 @@ namespace cx
     auto Manager::handle_map_request(xcb_map_request_event_t *evt) -> void
     {
         local_persist int map_requests{};
-
         DBGLOG("Handling map request of window with id {}. #{}", evt->window, map_requests++);
         frame_window(evt->window);
         xcb_map_window(get_conn(), evt->window);
@@ -123,36 +122,30 @@ namespace cx
         cx::println("\tcfg request by: {} sibling: {}", e->window, e->sibling);
         xcb_generic_error_t *err;
         uint32_t values[7], mask = 0, i = 0;
-        fmt::print("config masks: [");
         if(client_to_frame_mapping.count(e->parent) == 1) {
             xcb_window_t frame = client_to_frame_mapping[e->window];
             cx::println("Handle cfg for frame {} of client {}", frame, e->window);
             if (e->value_mask & XCB_CONFIG_WINDOW_X) {
-                fmt::print("x, ");
                 mask |= XCB_CONFIG_WINDOW_X;
                 values[i++] = e->x;
             }
             if (e->value_mask & XCB_CONFIG_WINDOW_Y) {
                 mask |= XCB_CONFIG_WINDOW_Y;
-                fmt::print("y, ");
                 // Modify y to be within limits
                 values[i++] = e->y;
             }
             if (e->value_mask & XCB_CONFIG_WINDOW_WIDTH) {
                 mask |= XCB_CONFIG_WINDOW_WIDTH;
-                fmt::print("width, ");
                 values[i++] = e->width;
             }
             if (e->value_mask & XCB_CONFIG_WINDOW_HEIGHT) {
                 mask |= XCB_CONFIG_WINDOW_HEIGHT;
-                fmt::print("height\t");
                 values[i++] = e->height;
             }
             if (e->value_mask & XCB_CONFIG_WINDOW_BORDER_WIDTH) {
                 mask |= XCB_CONFIG_WINDOW_BORDER_WIDTH;
                 values[i++] = e->border_width;
             }
-            cx::println("Configuring frame to ({},{}) - {}x{}", e->x, e->y, e->width, e->height);
             err = xcb_request_check(get_conn(), xcb_configure_window_checked(get_conn(), frame, mask, values));
             if (err) {
                 cx::println("xcb_configure_window_checked(): Error code: {}", err->error_code);
@@ -209,8 +202,7 @@ namespace cx
             return;
         }
         
-        auto attribute_cookie = xcb_get_window_attributes(get_conn(), window);
-        auto win_attr = xcb_get_window_attributes_reply(get_conn(), attribute_cookie, nullptr);
+        auto win_attr = xcb_get_window_attributes_reply(get_conn(), xcb_get_window_attributes(get_conn(), window), nullptr);
         auto client_geometry = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), window), nullptr);
         if (created_before_wm) {
             cx::println("Window was created before WM.");
@@ -284,6 +276,7 @@ namespace cx
 	    client_to_frame_mapping[window] = frame_id;
         frame_to_client_mapping[frame_id] = window;
         delete win_attr;
+        delete client_geometry;
     }
 
     auto Manager::configure_window_geometry(ws::Window window) -> void {
