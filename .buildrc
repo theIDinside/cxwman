@@ -1,0 +1,2 @@
+alias bygg="./cxwbuild.sh build debug"
+alias test="cd bin/debug && ./test.sh && cd -"

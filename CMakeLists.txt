@@ -28,8 +28,8 @@ if(NOT fmt_POPULATED)
     add_subdirectory(${fmt_SOURCE_DIR} ${fmt_BINARY_DIR})
 endif()
 
-set(SOURCES src/main.cpp			src/xcom/connect.cpp src/datastructure/geometry.cpp src/xcom/window.cpp src/xcom/workspace.cpp)
-set(HEADERS src/coreutils/core.hpp	src/xcom/connect.hpp src/datastructure/geometry.hpp src/xcom/window.hpp src/xcom/workspace.hpp)
+set(SOURCES src/main.cpp			src/xcom/connect.cpp src/datastructure/geometry.cpp src/xcom/window.cpp src/xcom/workspace.cpp src/xcom/container.cpp src/xcom/utility/event_table.cpp)
+set(HEADERS src/coreutils/core.hpp	src/xcom/connect.hpp src/datastructure/geometry.hpp src/xcom/window.hpp src/xcom/workspace.hpp src/xcom/container.hpp src/xcom/utility/event_table.hpp)
 
 
 add_executable(cxwman ${SOURCES} ${HEADERS})

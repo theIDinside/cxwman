@@ -1,6 +1,13 @@
 #pragma once
 #include <fmt/core.h>
 
+
+// These re-defines are just to more clearly state intent
+#define local_persist static
+#define global static
+
+
+
 namespace cx
 {
 
@@ -19,3 +26,11 @@ namespace cx
         fmt::print("\n");
     }
 } // namespace cx
+
+#define LOG(message, ...) cx::println(message, __VA_ARGS__)
+
+#ifdef DEBUGGING
+#define DBGLOG(message, ...) LOG(message, __VA_ARGS__)
+#else
+#define DBGLOG(message, ...)
+#endif
