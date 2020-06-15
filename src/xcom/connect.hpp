@@ -9,35 +9,14 @@
 // Library/Application headers
 #include <datastructure/geometry.hpp>
 #include <xcom/workspace.hpp>
+#include <xcom/constants.hpp>
+#include <xcom/core.hpp>
 
-#include <array>
-
-// N.B! ALL "defines" that redefine XCB calls, are of the "checked" kind
-
-/// Returns std::array<xcb_void_cookie_t, 2>, where i:0 is the frame cookie, and i:1 is the client cookie
-#define CONFIG_CX_WINDOW(window, fprops, fvals, cprops, cvals) \
-std::array<xcb_void_cookie_t, 2>{xcb_configure_window_checked(get_conn(), window.frame_id, fprops, fvals),\
-xcb_configure_window_checked(get_conn(), window.client_id, cprops, cvals)}\
 
 
 namespace cx
 {
-
-    namespace xcb_config_masks {
-        constexpr auto CXWIN_X         = XCB_CONFIG_WINDOW_X;
-        constexpr auto CXWIN_Y         = XCB_CONFIG_WINDOW_Y;
-        constexpr auto CXWIN_WIDTH     = XCB_CONFIG_WINDOW_WIDTH;
-        constexpr auto CXWIN_HEIGHT    = XCB_CONFIG_WINDOW_HEIGHT;
-        constexpr auto CXWIN_STACK     = XCB_CONFIG_WINDOW_STACK_MODE;
-
-        constexpr auto TELEPORT        = CXWIN_X | CXWIN_Y | CXWIN_WIDTH | CXWIN_HEIGHT;
-        constexpr auto MOVE            = CXWIN_X | CXWIN_Y;
-        constexpr auto RESIZE          = CXWIN_WIDTH | CXWIN_HEIGHT;
-    };
-
-    
-
-
+  
     namespace ws = cx::workspace;
 
     using XCBConn = xcb_connection_t;
@@ -69,6 +48,8 @@ namespace cx
     // This setups up, so that we tell the X-server, that we want to be notified of Mouse Button
     // events. This way, we override what needs to be done, so that we can hi-jack button presses in client windows
     inline void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window);
+
+    inline void setup_key_press_listening(XCBConn* conn, XCBWindow root);
 
     constexpr auto MouseModMask = XCB_MOD_MASK_1;
     class Manager
@@ -107,14 +88,16 @@ namespace cx
 
         // EVENT MANAGING
         auto handle_map_request(xcb_map_request_event_t *event) -> void;
+        auto handle_unmap_request(xcb_unmap_window_request_t* event) -> void;
         auto handle_config_request(xcb_configure_request_event_t* event) -> void;
 
         // We assume that most windows were not mapped/created before our WM started
         auto frame_window(XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false) -> void;
+        auto unframe_window(ws::Window w) -> void;
 
         auto configure_window_geometry(ws::Window w) -> void;
 
-        // Unmaps currently focused workspace, and maps workspace ws
+        // TODO(implement): Unmaps currently focused workspace, and maps workspace ws
         auto map_workspace(ws::Workspace &ws) -> void;
 
         // TODO(remove/fix): this is data we will in the future receive from the Workspace type

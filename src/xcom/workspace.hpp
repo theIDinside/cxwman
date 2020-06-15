@@ -10,6 +10,7 @@
 
 #include <xcom/window.hpp>
 #include <xcom/container.hpp>
+#include <xcom/constants.hpp>
 
 namespace cx::workspace
 {
@@ -52,6 +53,10 @@ namespace cx::workspace
          */
         auto register_window(Window w, bool tiled=true) -> std::optional<SplitConfigurations>;
         auto unregister_window(Window* w) -> std::unique_ptr<Window>;
-        
+        auto find_window(xcb_window_t xwin) -> std::optional<Window>;
+        auto display_update(xcb_connection_t* c) -> void;
+
+        void rotate_focus_layout(); // rotates the focused pair's layout
+        void rotate_focus_pair();   // rotates the focused pair's positions
     };
 } // namespace cx::workspace

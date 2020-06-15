@@ -1,10 +1,40 @@
 #include <coreutils/core.hpp>
 #include <xcom/connect.hpp>
+
 #include <cassert>
+
+#include <X11/keysymdef.h>
+#include <X11/keysym.h>
+
+#include <xcb/xcb_keysyms.h>
 
 #define CXGRABMODE XCB_GRAB_MODE_ASYNC
 namespace cx
 {
+
+    namespace debug
+    {
+        void print_modifiers(uint32_t mask)
+        {
+            const char *MODIFIERS[] = {
+                    "Shift", "Lock", "Ctrl", "Alt",
+                    "Mod2", "Mod3", "Mod4", "Mod5",
+                    "Button1", "Button2", "Button3", "Button4", "Button5"
+            };
+
+            fmt::print("Modifier mask: ");
+            for (const char **modifier = MODIFIERS ; mask; mask >>= 1, ++modifier) {
+                if (mask & 1) {
+                    fmt::print(*modifier);
+                }
+            }
+            fmt::print("\n");
+        }
+    } // namespace debug
+    
+
+
+
     inline void setup_redirection_of_map_requests(XCBConn *conn, XCBWindow window) {
     
         auto value_to_set = XCB_CW_EVENT_MASK;
@@ -29,15 +59,57 @@ namespace cx
     inline void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window)
     {
         auto mouse_button = 1; // left mouse button, 2 middle, 3 right, MouseModMask is alt + mouse click
-        auto PRESS_AND_RELEASE_MASK = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE;
+        auto PRESS_AND_RELEASE_MASK = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
         while (mouse_button < 4) {
             auto ck = xcb_grab_button_checked(conn, 0, window, PRESS_AND_RELEASE_MASK, CXGRABMODE, CXGRABMODE, window, XCB_NONE,
-                                              mouse_button, MouseModMask);
+                                              mouse_button, XCB_MOD_MASK_ANY);
             if (auto err = xcb_request_check(conn, ck); err) {
                 cx::println("Could not set up handling of mouse button clicks for button {}", mouse_button);
             }
             mouse_button++;
         }
+    }
+
+    inline void setup_key_press_listening(XCBConn* conn, XCBWindow root) {
+        namespace KM = xcb_key_masks;
+
+
+        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
+            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_F4);
+            xcb_key_symbols_free(keysyms);
+            auto kc_count = 0;
+            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
+                kc_count++;
+            }
+            cx::println("Found {} keycodes for F4. First: {}", kc_count, f4_keycodes[0]);
+            auto i = 0;
+            while(i < kc_count) {
+                // Grab Super+Shift + F4
+                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);  
+                ++i;
+            }
+        } else {
+            cx::println("Failed to allocate keysymbol table... perhaps?");
+        }
+
+        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
+            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_R);
+            xcb_key_symbols_free(keysyms);
+            auto kc_count = 0;
+            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
+                kc_count++;
+            }
+            cx::println("Found {} keycodes for F4. First: {}", kc_count, f4_keycodes[0]);
+            auto i = 0;
+            while(i < kc_count) {
+                // Grab Super+Shift + F4
+                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);  
+                ++i;
+            }
+        } else {
+            cx::println("Failed to allocate keysymbol table... perhaps?");
+        }
+
     }
 
     void Manager::setup() {
@@ -54,6 +126,8 @@ namespace cx
         // auto win_geom = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), get_root()), nullptr);
         this->focused_ws = new workspace::Workspace{0, "Workspace 1", geom::Geometry{0, 0, 800, 600}};
 	}
+
+    // TODO(implement): key grabbing/listening for key combos
 
     std::unique_ptr<Manager> Manager::initialize()
     {
@@ -85,6 +159,7 @@ namespace cx
         DBGLOG("Screen size {} x {} pixels. Root window: {}", screen->width_in_pixels, screen->height_in_pixels, root_drawable);
         setup_mouse_button_request_handling(connection, window);
         setup_redirection_of_map_requests(connection, window);
+        setup_key_press_listening(connection, window);
         // TODO: tell X we reparent windows, because we are the manager
         // TODO: grab keys & set up keysymbols and configs
         return std::unique_ptr<Manager>(new Manager{connection, screen, root_drawable, window});
@@ -117,6 +192,14 @@ namespace cx
         frame_window(evt->window);
         xcb_map_window(get_conn(), evt->window);
     }
+
+    auto Manager::handle_unmap_request(xcb_unmap_window_request_t* event) -> void {
+        if(client_to_frame_mapping.count(event->window) == 0) return;
+        auto window = focused_ws->find_window(event->window);
+        unframe_window(*window);
+        focused_ws->unregister_window(&window.value());
+    }
+
 
     auto Manager::handle_config_request(xcb_configure_request_event_t* e) -> void {
         cx::println("\tcfg request by: {} sibling: {}", e->window, e->sibling);
@@ -194,7 +277,7 @@ namespace cx
         std::array<xcb_void_cookie_t, 4> cookies;
 
         constexpr auto border_width = 3;
-        constexpr auto border_color = 0xff0000;
+        constexpr auto border_color = 0xff12ab;
         constexpr auto bg_color = 0x010101;
 
         if (client_to_frame_mapping.count(window)) {
@@ -223,9 +306,10 @@ namespace cx
         /* see include/xcb.h for the FRAME_EVENT_MASK */
         mask = XCB_CW_BORDER_PIXEL;
         values[0] = border_color;
-
         mask |= XCB_CW_EVENT_MASK;
-        values[1] = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY;
+        values[1] = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_KEY_PRESS | 
+        XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | 
+        XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
 
         cookies[0] = xcb_create_window_checked(get_conn(), 0, 
         frame_id, get_root(), pos_x, pos_y, client_geometry->width,
@@ -279,6 +363,10 @@ namespace cx
         delete client_geometry;
     }
 
+    auto Manager::unframe_window(ws::Window w) -> void {
+
+    }
+
     auto Manager::configure_window_geometry(ws::Window window) -> void {
         namespace xcm = xcb_config_masks;
         const auto& [x, y, width, height] = window.geometry.xcb_value_list();
@@ -317,12 +405,15 @@ namespace cx
                         break;
                     }
                     case XCB_UNMAP_NOTIFY:
-                        cx::println("Unmap notify caught");
+                        handle_unmap_request((xcb_unmap_window_request_t*)evt);
                     break;
                     case XCB_MAPPING_NOTIFY: // alerts us if a *key mapping* has been done, NOT a window one
                         break;
-                    case XCB_MOTION_NOTIFY:
+                    case XCB_MOTION_NOTIFY: {
+                        auto e = (xcb_motion_notify_event_t*)evt;
+                        cx::println("Motion notify event");
                         break;
+                    }
                     case XCB_CONFIGURE_NOTIFY: {
                         break;
                     }
@@ -333,14 +424,33 @@ namespace cx
                     case XCB_CLIENT_MESSAGE:
                         break;
                     case XCB_BUTTON_PRESS: {
+                        auto e = (xcb_button_press_event_t*)evt;
+                        /*  TODO: implement focusing of client via clicking or some key-combination
+                            auto managed_frame = e->child;
+                            TODO: this will look through all clients in focused_ws, and focus the workspace's focus pointer on that client
+                            focus_client(managed_frame);
+                        */
+                        cx::println("Button pressed for window child {}, root: {} event: {}", e->child, e->root, e->event);
                         break;
                     }
                     case XCB_BUTTON_RELEASE:
                         cx::println("Button released");
                         break;
-                    case XCB_KEY_PRESS:
+                    case XCB_KEY_PRESS: {
+                        auto e = (xcb_key_press_event_t*)evt;
+                        debug::print_modifiers(e->state);
+                        fmt::print("Key pressed: {}", e->detail);
+                        if(e->detail == 70) { // Beautiful hack and slash. Winkey + Shift + F4
+                            focused_ws->rotate_focus_layout();
+                            focused_ws->display_update(get_conn());
+                        } else if(e->detail == 27) {// Beautiful hack and slash. Winkey + Shift + R
+                            focused_ws->rotate_focus_pair();
+                            focused_ws->display_update(get_conn());
+                        }
                         break;
+                    }
                     case XCB_KEY_RELEASE:
+                        cx::println("Key released");
                         break;
                     case XCB_EXPOSE: {
                         auto e = (xcb_expose_event_t*)evt;

@@ -1,0 +1,7 @@
+build
+bin
+dep
+deps
+.vscode
+tests
+misc

@@ -1,4 +1,5 @@
 #include <xcom/workspace.hpp>
+#include <xcom/core.hpp>
 
 namespace cx::workspace
 {
@@ -39,5 +40,45 @@ namespace cx::workspace
     std::unique_ptr<Window> Workspace::unregister_window(Window* w) {
         cx::println("Unregistering windows not yet implemented");
         std::abort();
+        return {};
+    }
+
+    auto Workspace::find_window(xcb_window_t xwin) -> std::optional<Window> {
+        return in_order_traverse_find(m_root, [xwin](auto& c_tree) {
+            if(c_tree->is_window()) {
+                if(c_tree->client.value().client_id == xwin || c_tree->client.value().frame_id == xwin) return true;
+            }
+            return false;
+        });
+    }
+
+    auto Workspace::display_update(xcb_connection_t* c) -> void {
+        in_order_window_map(m_root, [c](auto& tree) {
+            auto window = *tree->client;
+            namespace xcm = cx::xcb_config_masks;
+            const auto& [x, y, width, height] = tree->client->geometry.xcb_value_list();
+            auto frame_properties = xcm::TELEPORT;
+            auto child_properties = xcm::RESIZE;
+            cx::uint frame_values[] = { x, y, width, height };
+            cx::uint child_values[] = { width, height };
+            auto cookies = std::array<xcb_void_cookie_t, 2>{
+                xcb_configure_window_checked(c, window.frame_id, frame_properties, frame_values),
+                xcb_configure_window_checked(c, window.client_id, child_properties, child_values)};
+            for(const auto& cookie : cookies) {
+                if(auto err = xcb_request_check(c, cookie); err) {
+                    DBGLOG("Failed to configure item {}. Error code: {}", err->resource_id, err->error_code);
+                }
+            }
+        });
+    }
+
+    void Workspace::rotate_focus_layout() {
+        cx::println("Attempting to rotate focused pair's layout");
+        focused_container->rotate_pair_layout();
+    }
+
+    void Workspace::rotate_focus_pair() {
+        cx::println("Attempting to rotate focused pair's position");
+        focused_container->rotate_pair_position();
     }
 };

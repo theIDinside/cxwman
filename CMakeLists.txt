@@ -34,7 +34,7 @@ set(HEADERS src/coreutils/core.hpp	src/xcom/connect.hpp src/datastructure/geomet
 
 add_executable(cxwman ${SOURCES} ${HEADERS})
 target_include_directories(cxwman PRIVATE ./src)
-target_link_libraries(cxwman xcb fmt::fmt)
+target_link_libraries(cxwman xcb fmt::fmt xcb-keysyms)
 
 add_executable(xcb_test tests/xcb_test.cpp)
 target_link_libraries(xcb_test xcb)
