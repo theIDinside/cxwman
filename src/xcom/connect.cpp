@@ -72,8 +72,6 @@ namespace cx
 
     inline void setup_key_press_listening(XCBConn* conn, XCBWindow root) {
         namespace KM = xcb_key_masks;
-
-
         if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
             auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_F4);
             xcb_key_symbols_free(keysyms);
@@ -99,7 +97,43 @@ namespace cx
             while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
                 kc_count++;
             }
-            cx::println("Found {} keycodes for F4. First: {}", kc_count, f4_keycodes[0]);
+            cx::println("Found {} keycodes for R. First: {}", kc_count, f4_keycodes[0]);
+            auto i = 0;
+            while(i < kc_count) {
+                // Grab Super+Shift + F4
+                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);  
+                ++i;
+            }
+        } else {
+            cx::println("Failed to allocate keysymbol table... perhaps?");
+        }
+
+        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
+            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_Left);
+            xcb_key_symbols_free(keysyms);
+            auto kc_count = 0;
+            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
+                kc_count++;
+            }
+            cx::println("Found {} keycodes for Left. First: {}", kc_count, f4_keycodes[0]);
+            auto i = 0;
+            while(i < kc_count) {
+                // Grab Super+Shift + F4
+                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);  
+                ++i;
+            }
+        } else {
+            cx::println("Failed to allocate keysymbol table... perhaps?");
+        }
+
+        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
+            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_Right);
+            xcb_key_symbols_free(keysyms);
+            auto kc_count = 0;
+            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
+                kc_count++;
+            }
+            cx::println("Found {} keycodes for Right. First: {}", kc_count, f4_keycodes[0]);
             auto i = 0;
             while(i < kc_count) {
                 // Grab Super+Shift + F4
@@ -433,13 +467,19 @@ namespace cx
                     case XCB_KEY_PRESS: {
                         auto e = (xcb_key_press_event_t*)evt;
                         // debug::print_modifiers(e->state);
-                        // fmt::print("Key pressed: {}\n", e->detail);
-                        auto clients = focused_ws->get_clients();
+                        fmt::print("Key pressed: {}\n", e->detail);
                         if(e->detail == 70) { // Beautiful hack and slash. Winkey + Shift + F4
                             focused_ws->rotate_focus_layout();
                             focused_ws->display_update(get_conn());
-                        } else if(e->detail == 27) {// Beautiful hack and slash. Winkey + Shift + R
+                        } 
+                        else if(e->detail == 27) {// Beautiful hack and slash. Winkey + Shift + R
                             focused_ws->rotate_focus_pair();
+                            focused_ws->display_update(get_conn());
+                        } else if(e->detail == 113) { // Left key
+                            focused_ws->move_focused_left();
+                            focused_ws->display_update(get_conn());
+                        } else if(e->detail == 114) { // Right key
+                            focused_ws->move_focused_right();
                             focused_ws->display_update(get_conn());
                         }
                         break;

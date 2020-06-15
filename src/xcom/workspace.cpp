@@ -83,6 +83,48 @@ namespace cx::workspace
         focused_container->rotate_pair_position();
     }
 
+    void Workspace::move_focused_right() {
+        auto cs = get_clients();
+        auto index = 0;
+        auto found = false;
+        for(auto p : cs) {
+            if(p == focused_container) {
+                found = true;
+                break;
+            }
+            index++;
+        }
+        if(found) {
+            DBGLOG("Found client at {}", index);
+            if(index == cs.size()-1) {
+                move_client(focused_container, *std::begin(cs));
+            } else {
+                move_client(focused_container, cs[index+1]);
+            }
+        }
+    }
+    void Workspace::move_focused_left() {
+        auto cs = get_clients();
+        bool found = false;
+        auto index = 0;
+        for(auto p : cs) {
+            if(p == focused_container) {
+                found = true;
+                break;
+            } 
+            index++;
+        }
+        if(found) {
+            DBGLOG("Found client at {}", index);
+            if(index == 0) {
+                move_client(focused_container, *std::rbegin(cs));
+            } else {
+                move_client(focused_container, cs[index-1]);
+            }
+        }
+    }
+        
+
     void Workspace::focus_client(const xcb_window_t xwin) {
         auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
             if(tree->is_window()) {
@@ -100,6 +142,8 @@ namespace cx::workspace
         }
     }
 
+    // This makes it, so we can "teleport" windows. We can an in-order list
+    // so moving a window right, will move it along the bottom of the tree to the right, and vice versa
     std::vector<ContainerTree*> Workspace::get_clients() {
         std::vector<ContainerTree*> clients{};
         std::stack<ContainerTree*> iterator_stack{};

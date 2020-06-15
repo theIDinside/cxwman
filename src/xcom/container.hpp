@@ -78,12 +78,16 @@ namespace cx::workspace
         friend auto in_order_window_map(std::unique_ptr<ContainerTree>& tree, MapFn fn) -> void;
         friend bool are_swappable(TreeRef from, TreeRef to);
         friend void move_client(TreeRef from, TreeRef to);
+        friend void move_client(ContainerTree* from, ContainerTree* to);
+        
         
     };
     using TreeRef   = std::unique_ptr<ContainerTree>&;
     using TreeOwned = std::unique_ptr<ContainerTree>;
     bool are_swappable(TreeRef from, TreeRef to);
     void move_client(TreeRef from, TreeRef to);
+    void move_client(ContainerTree* from, ContainerTree* to);
+
     std::unique_ptr<ContainerTree> make_tree(std::string ws_tag);
 
     template <typename MapFn>

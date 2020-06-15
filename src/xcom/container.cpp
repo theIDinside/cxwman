@@ -215,4 +215,38 @@ namespace cx::workspace
         to_parent->update_subtree_geometry();
     }
 
+    void move_client(ContainerTree* from, ContainerTree* to) {
+        // this should work...
+        auto parent_from = from->parent;
+        auto parent_to = to->parent;
+        if(!from->is_root() && !to->is_root()) {
+            if(parent_from == parent_to) {
+                cx::println("Client from and Client to has the same parent. Swapping sibling positions");
+                parent_from->left.swap(parent_from->right);
+            } else {
+                if(parent_from->right.get() == from) {
+                    if(parent_to->left.get() == to) {
+                        parent_to->left.swap(parent_from->right);
+                    } else if(parent_to->right.get() == to) {
+                        parent_to->right.swap(parent_from->right);
+                    } else {
+                        DBGLOG("FAILURE: Tree 'to' did not find itself as a child of to's parent: {}", parent_to->tag);
+                    }
+                } else if(parent_from->left.get() == from) {
+                    if(parent_to->left.get() == to) {
+                        parent_to->left.swap(parent_from->left);
+                    } else if(parent_to->right.get() == to) {
+                        parent_to->right.swap(parent_from->left);
+                    } else {
+                        DBGLOG("FAILURE: Tree 'to' did not find itself as a child of to's parent: {}", parent_to->tag);
+                    }
+                }
+                from->parent = parent_to;
+                to->parent = parent_from;
+            }
+            parent_from->update_subtree_geometry();
+            parent_to->update_subtree_geometry();
+        }
+    }
+
 } // namespace cx::workspace

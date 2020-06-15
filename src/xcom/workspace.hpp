@@ -59,8 +59,11 @@ namespace cx::workspace
         void rotate_focus_layout(); // rotates the focused pair's layout
         void rotate_focus_pair();   // rotates the focused pair's positions
 
+        void move_focused_right();
+        void move_focused_left();
+        
         void focus_client(const xcb_window_t xwin);
-
+        
         // This gets all clients as a vector of references (not the v/h split containers that is)
         std::vector<ContainerTree*> get_clients();
     };
