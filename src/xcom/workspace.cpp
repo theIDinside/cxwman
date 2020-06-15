@@ -43,10 +43,10 @@ namespace cx::workspace
         return {};
     }
 
-    auto Workspace::find_window(xcb_window_t xwin) -> std::optional<Window> {
+    auto Workspace::find_window(xcb_window_t xwin) -> std::optional<ContainerTree*> {
         return in_order_traverse_find(m_root, [xwin](auto& c_tree) {
             if(c_tree->is_window()) {
-                if(c_tree->client.value().client_id == xwin || c_tree->client.value().frame_id == xwin) return true;
+                if(c_tree->client->client_id == xwin || c_tree->client->frame_id == xwin) return true;
             }
             return false;
         });
@@ -80,5 +80,22 @@ namespace cx::workspace
     void Workspace::rotate_focus_pair() {
         cx::println("Attempting to rotate focused pair's position");
         focused_container->rotate_pair_position();
+    }
+
+    void Workspace::focus_client(xcb_window_t xwin) {
+        auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
+            if(tree->is_window()) {
+                if(tree->client->client_id == xwin || tree->client->frame_id == xwin) {
+                    return true;
+                }
+            }
+            return false;
+        });
+        if(c) {
+            cx::println("Focused client is: [Frame: {}, Client: {}]", c.value()->client->client_id, c.value()->client->frame_id);
+            focused_container = *c;
+        } else {
+            cx::println("Could not find managed window with id {}", xwin);
+        }
     }
 };

@@ -63,10 +63,10 @@ namespace cx::workspace
         void rotate_pair_position();
 
         template <typename Predicate>
-        friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<Window> {
+        friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*> {
             if(!tree) return {};
             if(p(tree))  {
-                return tree->client; 
+                return tree.get();
             } else {
                 if(auto res = in_order_traverse_find(tree->left, p); res) 
                     return res;

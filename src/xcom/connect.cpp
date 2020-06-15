@@ -196,8 +196,8 @@ namespace cx
     auto Manager::handle_unmap_request(xcb_unmap_window_request_t* event) -> void {
         if(client_to_frame_mapping.count(event->window) == 0) return;
         auto window = focused_ws->find_window(event->window);
-        unframe_window(*window);
-        focused_ws->unregister_window(&window.value());
+        // unframe_window(*window);
+        // focused_ws->unregister_window(&window.value());
     }
 
 
@@ -425,11 +425,10 @@ namespace cx
                         break;
                     case XCB_BUTTON_PRESS: {
                         auto e = (xcb_button_press_event_t*)evt;
-                        /*  TODO: implement focusing of client via clicking or some key-combination
-                            auto managed_frame = e->child;
-                            TODO: this will look through all clients in focused_ws, and focus the workspace's focus pointer on that client
-                            focus_client(managed_frame);
-                        */
+                        // TODO: implement focusing of client via clicking or some key-combination
+                        auto managed_frame = e->child;
+                        // TODO: this will look through all clients in focused_ws, and focus the workspace's focus pointer on that client
+                        focused_ws->focus_client(managed_frame);
                         cx::println("Button pressed for window child {}, root: {} event: {}", e->child, e->root, e->event);
                         break;
                     }
