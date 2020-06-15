@@ -1,5 +1,6 @@
 #include <xcom/workspace.hpp>
 #include <xcom/core.hpp>
+#include <stack>
 
 namespace cx::workspace
 {
@@ -82,7 +83,7 @@ namespace cx::workspace
         focused_container->rotate_pair_position();
     }
 
-    void Workspace::focus_client(xcb_window_t xwin) {
+    void Workspace::focus_client(const xcb_window_t xwin) {
         auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
             if(tree->is_window()) {
                 if(tree->client->client_id == xwin || tree->client->frame_id == xwin) {
@@ -97,5 +98,26 @@ namespace cx::workspace
         } else {
             cx::println("Could not find managed window with id {}", xwin);
         }
+    }
+
+    std::vector<ContainerTree*> Workspace::get_clients() {
+        std::vector<ContainerTree*> clients{};
+        std::stack<ContainerTree*> iterator_stack{};
+        ContainerTree* iter = m_root.get();
+
+        while(iter != nullptr || !iterator_stack.empty()) {
+            while(iter != nullptr) {
+                iterator_stack.push(iter);
+                iter = iter->left.get();
+            }
+
+            iter = iterator_stack.top();
+            if(iter->is_window())
+                clients.push_back(iter);
+            iterator_stack.pop();
+            iter = iter->right.get();
+        }
+        DBGLOG("Found {} clients in workspace. {} left on stack", clients.size(), iterator_stack.size());
+        return clients;
     }
 };

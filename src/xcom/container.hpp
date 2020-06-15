@@ -34,9 +34,6 @@ namespace cx::workspace
         float split_ratio;
         geom::Geometry geometry;
 
-
-
-
         void register_window(Window w);
 
 
@@ -79,8 +76,6 @@ namespace cx::workspace
         // run MapFn on each item in the tree, that is of window "type"
         template <typename MapFn>
         friend auto in_order_window_map(std::unique_ptr<ContainerTree>& tree, MapFn fn) -> void;
-
-
         friend bool are_swappable(TreeRef from, TreeRef to);
         friend void move_client(TreeRef from, TreeRef to);
         

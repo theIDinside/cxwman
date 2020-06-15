@@ -388,13 +388,10 @@ namespace cx
     {
         setup();
         this->m_running = true;
-        // TODO: handle events & dispatch them
-        auto map_requests = 0;
         while (m_running) {
             auto evt = xcb_wait_for_event(get_conn());
             if (evt == nullptr) {
                 // do something else
-
                 // TODO: complete hack. It is for formatting purposes *only*. clang-format slugs it out the rest
                 // to far otherwise
                 continue;
@@ -426,10 +423,8 @@ namespace cx
                     case XCB_BUTTON_PRESS: {
                         auto e = (xcb_button_press_event_t*)evt;
                         // TODO: implement focusing of client via clicking or some key-combination
-                        auto managed_frame = e->child;
                         // TODO: this will look through all clients in focused_ws, and focus the workspace's focus pointer on that client
-                        focused_ws->focus_client(managed_frame);
-                        cx::println("Button pressed for window child {}, root: {} event: {}", e->child, e->root, e->event);
+                        focused_ws->focus_client(e->child);
                         break;
                     }
                     case XCB_BUTTON_RELEASE:
@@ -437,8 +432,9 @@ namespace cx
                         break;
                     case XCB_KEY_PRESS: {
                         auto e = (xcb_key_press_event_t*)evt;
-                        debug::print_modifiers(e->state);
-                        fmt::print("Key pressed: {}", e->detail);
+                        // debug::print_modifiers(e->state);
+                        // fmt::print("Key pressed: {}\n", e->detail);
+                        auto clients = focused_ws->get_clients();
                         if(e->detail == 70) { // Beautiful hack and slash. Winkey + Shift + F4
                             focused_ws->rotate_focus_layout();
                             focused_ws->display_update(get_conn());
