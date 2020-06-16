@@ -12,8 +12,6 @@
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
 
-
-
 namespace cx
 {
   

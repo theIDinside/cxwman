@@ -5,11 +5,22 @@
 
 namespace cx::workspace
 {
+
+    // If layout policy is FLOATING, passing that in here will return Vertical.
+    // But as a matter of fact, splitting a floating window makes no sense. So it means you are dumb.
+    auto split(const geom::Geometry geometry, Layout policy, float split_ratio) {
+        if(policy == Layout::Horizontal) {
+            return geom::vsplit(geometry, split_ratio);
+        } else {
+            return geom::hsplit(geometry, split_ratio);
+        }
+    }
+
     ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry) :   
         tag(std::move(container_tag)), client{}, 
         left(nullptr), right(nullptr), parent(nullptr), 
         policy(Layout::Vertical), split_ratio(0.5),
-        geometry(geometry)
+        geometry(geometry), height(0)
     {
         assert(!client.has_value() && "Client should not be set using this constructor");
     }
@@ -41,35 +52,26 @@ namespace cx::workspace
     void ContainerTree::push_client(Window new_client) {
         if(is_window()) {
             DBGLOG("Container {} is window", tag);
-            auto existing_client = client.value();
-            this->tag = "split_container";
-            if(policy == Layout::Horizontal) {
-                auto container_geometry = geom::vsplit(this->geometry);
-                auto& [left_geo, right_geo] = container_geometry;
-                left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, left_geo);
-                right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, right_geo);
-                left->push_client(existing_client);
-                right->push_client(new_client);
-                left->parent = this;
-                right->parent = this;
-                client.reset();
-            } else if(policy == Layout::Vertical) {
-                auto container_geometry = geom::hsplit(this->geometry);
-                auto& [top, bottom] = container_geometry;
-                left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, top);
-                right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, bottom);
-                left->push_client(existing_client);
-                right->push_client(new_client);
-                left->parent = this;
-                right->parent = this;
-                client.reset();
-            }
+            auto existing_client = *client;
+            auto con_prefix = layout_string(policy);
+            
+            tag.clear(); tag.reserve(16); tag = con_prefix; tag.append("_container");
+
+            auto [lsubtree_geometry, rsubtree_geometry] = split(geometry, policy);;
+            left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lsubtree_geometry);
+            right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rsubtree_geometry);
+            left->height = height + 1;
+            right->height = height + 1;
+            left->push_client(existing_client);
+            right->push_client(new_client);
+            left->parent = this;
+            right->parent = this;
+            client.reset(); // effectively making 'this' of branch type
         } else {
             DBGLOG("Container {} is not window", tag);
-            new_client.set_geometry(this->geometry);
             this->tag = new_client.m_tag.m_tag;
-            this->client = new_client;
-            this->client.value().set_geometry(this->geometry);
+            this->client = new_client;  // making 'this' of leaf type
+            this->client->set_geometry(this->geometry);
         }
     }
 
@@ -78,55 +80,31 @@ namespace cx::workspace
         if(!is_root()) {
             if(parent->left.get() == this) {
                 cx::println("We are left child");
-                auto g = parent->child_requesting_geometry(BranchDir::Left);
-                this->geometry = g;
+                this->geometry = parent->child_requesting_geometry(BranchDir::Left);
             } else if(parent->right.get() == this) {
                 cx::println("We are right child");
-                auto g = parent->child_requesting_geometry(BranchDir::Right);
-                this->geometry = g;
+                this->geometry = parent->child_requesting_geometry(BranchDir::Right);
             }
         }
+        if(client) client->set_geometry(geometry);
     } 
 
     geom::Geometry ContainerTree::child_requesting_geometry(BranchDir dir) {
-        if(policy == Layout::Horizontal) {
-            auto split_geometries = geom::vsplit(this->geometry);
-            auto& [left_dir, right_dir] = split_geometries;
-            if(dir == BranchDir::Left) return left_dir;
-            else return right_dir;
-        } else {
-            auto split_geometries = geom::hsplit(this->geometry);
-            auto& [left_dir, right_dir] = split_geometries;
-            if(dir == BranchDir::Left) return left_dir;
-            else return right_dir;
-        }
+        auto [ltree_geometry, rtree_geometry] = split(geometry, policy);
+        return (dir == BranchDir::Left) ? ltree_geometry : rtree_geometry;
     }
 
 
     void ContainerTree::update_subtree_geometry() {
         if(is_split_container()) {
-            if(policy == Layout::Horizontal) {
-                auto split_geometries = geom::vsplit(this->geometry);
-                auto& [g_left, g_right] = split_geometries;
-                if(left) {
-                    left->geometry = g_left;
-                    left->update_subtree_geometry();
-                }
-                if(right) {
-                    right->geometry = g_right;
-                    right->update_subtree_geometry();
-                }
-            } else if(policy == Layout::Vertical) {
-                auto split_geometries = geom::hsplit(this->geometry);
-                auto& [top, bottom] = split_geometries;
-                if(left) {
-                    left->geometry = top;
-                    left->update_subtree_geometry();
-                }
-                if(right) {
-                    right->geometry = bottom;
-                    right->update_subtree_geometry();
-                }
+            auto [ltree_geo, rtree_geo] = split(geometry, policy);
+            if(left) {
+                left->geometry = ltree_geo;
+                left->update_subtree_geometry();
+            }
+            if(right) {
+                right->geometry = rtree_geo;
+                right->update_subtree_geometry();
             }
         }
         if(is_window()) {
@@ -164,10 +142,8 @@ namespace cx::workspace
 
     void ContainerTree::rotate_pair_position() {
         if(!is_root()) {
-            cx::println("We are not root. Rotating place with sibling. \nCurrent position geometry: {},{} - {}x{}", this->geometry.pos.x, this->geometry.pos.y, this->geometry.width, this->geometry.height);
             parent->left.swap(parent->right);
             parent->update_subtree_geometry();
-            cx::println("New position geometry(?): {},{} - {}x{}", this->geometry.pos.x, this->geometry.pos.y, this->geometry.width, this->geometry.height);
         }
     }
 
@@ -179,40 +155,6 @@ namespace cx::workspace
 
         return  (from->is_window() && to->is_window()) || 
                 ((from->is_split_container() && from->left->is_window() && from->right->is_window()) && to->is_window());
-    }
-
-    void move_client(TreeRef from, TreeRef to) {
-        auto from_parent    = from->parent;
-        auto to_parent      = to->parent;
-        if(are_swappable(from, to)) {
-            // We are two children of the same parent.
-            if(from_parent == to_parent) {
-                from.swap(to);
-                return;
-            }
-
-            if(from_parent->right == from) {
-                if(to_parent->left == to) {
-                    to_parent->left.swap(from_parent->right);
-                } else if(to_parent->right == to) {
-                    to_parent->right.swap(from_parent->right);
-                } else {
-                    DBGLOG("FAILURE: Tree 'to' did not find itself as a child of to's parent: {}", to_parent->tag);
-                }
-            } else if(from_parent->left == from) {
-                if(to_parent->left == to) {
-                    to_parent->left.swap(from_parent->left);
-                } else if(to_parent->right == to) {
-                    to_parent->right.swap(from_parent->left);
-                } else {
-                    DBGLOG("FAILURE: Tree 'to' did not find itself as a child of to's parent: {}", to_parent->tag);
-                }
-            } else {
-                DBGLOG("FAILURE: Tree did not find itself as a child of from's parent: {}", from_parent->tag);
-            }
-        }
-        from_parent->update_subtree_geometry();
-        to_parent->update_subtree_geometry();
     }
 
     void move_client(ContainerTree* from, ContainerTree* to) {

@@ -5,9 +5,8 @@
 
 namespace cx::config
 {
-
-
+    
     struct KeyConfiguration {
-        
+
     };
 } // namespace cx::config
