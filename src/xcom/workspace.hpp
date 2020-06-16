@@ -7,9 +7,9 @@
 // Library/Application headers
 #include <coreutils/core.hpp>
 #include <datastructure/geometry.hpp>
+#include <datastructure/container.hpp>
 
 #include <xcom/window.hpp>
-#include <xcom/container.hpp>
 #include <xcom/constants.hpp>
 
 namespace cx::workspace

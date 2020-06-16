@@ -1,12 +1,11 @@
 #pragma once
 #include <fmt/core.h>
-
+#include <string_view>
+#include <cstring>
 
 // These re-defines are just to more clearly state intent
 #define local_persist static
 #define global static
-
-
 
 namespace cx
 {
@@ -18,11 +17,14 @@ namespace cx
     using isize = signed long;
     using f32 = float;
     using f64 = double;
+
+
+
     template <typename... Args>
-    void println(const char *format_string, Args... args)
+    constexpr void println(const char* format_str, Args... args)
     {
-        using fmt_str_t = decltype(format_string);
-        fmt::print(std::forward<fmt_str_t>(format_string), std::forward<Args>(args)...);
+        using fmt_str_t = decltype(format_str);
+        fmt::print(std::forward<fmt_str_t>(format_str), std::forward<Args>(args)...);
         fmt::print("\n");
     }
 } // namespace cx
