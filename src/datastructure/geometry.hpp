@@ -29,7 +29,13 @@ namespace cx::geom
         static Geometry default_new() {
             return Geometry{0, 0, 800, 600};
         }
+
+        friend bool aabb_collision(const Geometry& p, const Geometry& geometry);
+        friend bool is_inside(const Position& p, const Geometry& geometry);
     };
     std::pair<Geometry, Geometry> vsplit(const Geometry& g, float split_ratio = 0.5f);
     std::pair<Geometry, Geometry> hsplit(const Geometry& g, float split_ratio = 0.5f);
+    /// Aligned-axis bounding box collision
+    bool is_inside(const Position& p, const Geometry& geometry);
+    bool aabb_collision(const Geometry& p, const Geometry& geometry);
 } // namespace cx::geom

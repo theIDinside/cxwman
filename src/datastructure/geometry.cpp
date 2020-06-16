@@ -20,4 +20,14 @@ namespace cx::geom
         return {Geometry{g.x(), g.y(), g.width, theight}, Geometry{g.x(), by, g.width, bheight}};
     }
 
+    bool is_inside(const Position& p, const Geometry& geometry) {
+        auto within_x = p.x >= geometry.x() && p.x <= geometry.x() + geometry.width;
+        auto within_y = p.y >= geometry.y() && p.y <= geometry.y() + geometry.height;
+        return within_x && within_y;
+    }
+    bool aabb_collision(const Geometry& a, const Geometry& b) {
+        auto x_collision = ((a.x() + a.width >= b.x()) && (b.x() + b.width >= a.x()));
+        auto y_collision = ((a.y() + a.height >= b.y()) && (b.y() + b.height >= a.y()));
+    }
+
 } // namespace cx::geom
