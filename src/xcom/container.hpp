@@ -90,13 +90,15 @@ namespace cx::workspace
 
     template <typename MapFn>
     auto in_order_window_map(std::unique_ptr<ContainerTree>& tree, MapFn fn) -> void {
-        if(!tree) return;
+        if(!tree) 
+            return;
         in_order_window_map(tree->left, fn);
         if(tree->is_window())
             fn(tree);
         in_order_window_map(tree->right, fn);
     }
 
+    
     template <typename Predicate>
     auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*> {
         if(!tree) return {};

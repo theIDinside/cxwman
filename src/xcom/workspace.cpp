@@ -145,6 +145,7 @@ namespace cx::workspace
     // This makes it, so we can "teleport" windows. We can an in-order list
     // so moving a window right, will move it along the bottom of the tree to the right, and vice versa
     std::vector<ContainerTree*> Workspace::get_clients() {
+        // TODO(implement): Add template to this, so we can pass in a predicate, so we can say "we want windows according to rule X"
         std::vector<ContainerTree*> clients{};
         std::stack<ContainerTree*> iterator_stack{};
         ContainerTree* iter = m_root.get();

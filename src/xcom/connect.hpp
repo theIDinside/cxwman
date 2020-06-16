@@ -41,13 +41,13 @@ namespace cx
     // we would check how we layout "our" windows, and then find a suitable place for the
     // soon-to-be mapped window. If we can't find one, in a tiling wm, we split a sub-space somewhere,
     // where a window exists, and let the new window take half that space, for example
-    inline void setup_redirection_of_map_requests(XCBConn *conn, XCBWindow window);
+    void setup_redirection_of_map_requests(XCBConn *conn, XCBWindow window);
 
     // This setups up, so that we tell the X-server, that we want to be notified of Mouse Button
     // events. This way, we override what needs to be done, so that we can hi-jack button presses in client windows
-    inline void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window);
+    void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window);
 
-    inline void setup_key_press_listening(XCBConn* conn, XCBWindow root);
+    void setup_key_press_listening(XCBConn* conn, XCBWindow root);
 
     constexpr auto MouseModMask = XCB_MOD_MASK_1;
     class Manager

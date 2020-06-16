@@ -32,10 +32,7 @@ namespace cx
         }
     } // namespace debug
     
-
-
-
-    inline void setup_redirection_of_map_requests(XCBConn *conn, XCBWindow window) {
+    void setup_redirection_of_map_requests(XCBConn *conn, XCBWindow window) {
     
         auto value_to_set = XCB_CW_EVENT_MASK;
         cx::u32 values[2];
@@ -56,7 +53,7 @@ namespace cx
         DBGLOG("Root geometry: Width x Height = {} x {}", g_reply->width, g_reply->height);
     }
 
-    inline void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window)
+    void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window)
     {
         auto mouse_button = 1; // left mouse button, 2 middle, 3 right, MouseModMask is alt + mouse click
         auto PRESS_AND_RELEASE_MASK = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
@@ -70,7 +67,7 @@ namespace cx
         }
     }
 
-    inline void setup_key_press_listening(XCBConn* conn, XCBWindow root) {
+    void setup_key_press_listening(XCBConn* conn, XCBWindow root) {
         namespace KM = xcb_key_masks;
         if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
             auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_F4);
@@ -147,21 +144,16 @@ namespace cx
     }
 
     void Manager::setup() {
-        // Grab top levels
-        // auto vcookie = xcb_grab_server(get_conn());
+        // TODO(implement): grab pre-existing windows, reparent them properly and manage them
         xcb_grab_server(get_conn());
         setup_root_workspace_container();
-        // TODO: handle mapping & reparenting already existing top-level windows
         xcb_ungrab_server(get_conn());
     }
 
 	void Manager::setup_root_workspace_container() {
-
         // auto win_geom = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), get_root()), nullptr);
         this->focused_ws = new workspace::Workspace{0, "Workspace 1", geom::Geometry{0, 0, 800, 600}};
 	}
-
-    // TODO(implement): key grabbing/listening for key combos
 
     std::unique_ptr<Manager> Manager::initialize()
     {

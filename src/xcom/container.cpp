@@ -54,7 +54,7 @@ namespace cx::workspace
             DBGLOG("Container {} is window", tag);
             auto existing_client = *client;
             auto con_prefix = layout_string(policy);
-            
+
             tag.clear(); tag.reserve(16); tag = con_prefix; tag.append("_container");
 
             auto [lsubtree_geometry, rsubtree_geometry] = split(geometry, policy);;
@@ -130,16 +130,14 @@ namespace cx::workspace
             other->client.swap(client);
         }
     }
-
+    /// Changes the layout of a client tile-pair on the screen between horizontal/vertical
     void ContainerTree::rotate_pair_layout() {
-        cx::println("Trying to rotate ContainerTree layout");
         if(is_window()) {
-            cx::println("We are window. Attempting to rotate layouts");
             parent->switch_layout_policy();
             parent->update_subtree_geometry();
         }
     }
-
+    /// Rotates position of a client-tile-pair 
     void ContainerTree::rotate_pair_position() {
         if(!is_root()) {
             parent->left.swap(parent->right);
@@ -147,7 +145,7 @@ namespace cx::workspace
         }
     }
 
-    // Windows can freely be swapped with any other window container. 
+    /// Windows can freely be swapped with any other window container. 
     bool are_swappable(TreeRef from, TreeRef to) {
         bool has_left = from->has_left();
         bool has_right = from->has_right();
@@ -157,6 +155,7 @@ namespace cx::workspace
                 ((from->is_split_container() && from->left->is_window() && from->right->is_window()) && to->is_window());
     }
 
+    // This looks rugged...
     void move_client(ContainerTree* from, ContainerTree* to) {
         // this should work...
         auto parent_from = from->parent;

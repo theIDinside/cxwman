@@ -45,20 +45,27 @@ namespace cx::workspace
         ContainerTree* focused_container;
 
 
-        /*  Public & Private Interface API */
-
         /** 
          * Returns geometry to the manager where we have stored this client, and where it should be mapped to. Mapping is still handled by the manager
          * not the individual workspace
          */
         auto register_window(Window w, bool tiled=true) -> std::optional<SplitConfigurations>;
         auto unregister_window(Window* w) -> std::unique_ptr<Window>;
+
+        /// Searches the ContainerTree in order, for a window with the id of xwin
         auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
+        /// Traverses the ContainerTree for this workspace in order, and calls xcb_configure for each window with 
+        /// the properties stored in each ws::Window.
         auto display_update(xcb_connection_t* c) -> void;
 
-        void rotate_focus_layout(); // rotates the focused pair's layout
-        void rotate_focus_pair();   // rotates the focused pair's positions
+        /// rotates the focused client tile-pair layouts
+        void rotate_focus_layout(); 
+        /// rotates the focused client tile-pair positions
+        void rotate_focus_pair();   
 
+        /// Move's the focused client right in the ContainerTree leafs - this does not necessarily
+        /// translate to left/right in screen space coordinates. It only means that it moves left
+        /// or right in it's leaf position in the tree
         void move_focused_right();
         void move_focused_left();
         
