@@ -1,7 +1,5 @@
 #include <datastructure/container.hpp>
-#ifdef DEBUGGING
 #include <cassert>
-#endif
 
 namespace cx::workspace
 {

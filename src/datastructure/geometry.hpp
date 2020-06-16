@@ -24,7 +24,7 @@ namespace cx::geom
 
         constexpr inline GU y() const { return pos.y; }
         constexpr inline GU x() const { return pos.x; }
-        constexpr inline auto xcb_value_list() -> std::array<GU, 4> { return {pos.x, pos.y, width, height}; }
+        constexpr inline auto xcb_value_list() -> const std::array<GU, 4> { return {pos.x, pos.y, width, height}; }
 
         static Geometry default_new() {
             return Geometry{0, 0, 800, 600};

@@ -88,13 +88,14 @@ namespace cx::workspace
 
     std::unique_ptr<ContainerTree> make_tree(std::string ws_tag);
 
+
     template <typename MapFn>
     auto in_order_window_map(std::unique_ptr<ContainerTree>& tree, MapFn fn) -> void {
         if(!tree) 
             return;
         in_order_window_map(tree->left, fn);
         if(tree->is_window())
-            fn(tree);
+            fn(tree->client.value());
         in_order_window_map(tree->right, fn);
     }
 
