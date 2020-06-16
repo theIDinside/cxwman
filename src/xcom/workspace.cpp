@@ -77,13 +77,11 @@ namespace cx::workspace
     }
 
     void Workspace::rotate_focus_layout() {
-        cx::println("Attempting to rotate focused pair's layout");
-        focused_container->rotate_pair_layout();
+        focused_container->rotate_container_layout();
     }
 
     void Workspace::rotate_focus_pair() {
-        cx::println("Attempting to rotate focused pair's position");
-        focused_container->rotate_pair_position();
+        focused_container->rotate_children();
     }
 
     void Workspace::move_focused_right() {

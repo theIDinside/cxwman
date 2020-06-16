@@ -41,6 +41,7 @@ namespace cx::workspace
         using TreePtr   = ContainerTree*;
 
         explicit ContainerTree(std::string container_tag, geom::Geometry geometry);
+        explicit ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, std::size_t height);
         ~ContainerTree();
 
         std::string tag;
@@ -57,8 +58,8 @@ namespace cx::workspace
         bool is_root() const;
         bool is_split_container() const;        // basically "is_branch?"
         bool is_window() const;                 // basically "is_leaf?"
-        bool has_left() const;
-        bool has_right() const;
+        bool has_left() const;                  // TODO: remove these? 
+        bool has_right() const;                 // TODO: remove these?
 
         void push_client(Window new_client);
         void update_geometry_from_parent();
@@ -67,8 +68,8 @@ namespace cx::workspace
         void switch_layout_policy();
         void swap_clients(TreeRef other);
 
-        void rotate_pair_layout();
-        void rotate_pair_position();
+        void rotate_container_layout();
+        void rotate_children();
 
         template <typename Predicate>
         friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>;
