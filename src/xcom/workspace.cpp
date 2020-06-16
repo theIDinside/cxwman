@@ -54,10 +54,11 @@ namespace cx::workspace
     }
 
     auto Workspace::display_update(xcb_connection_t* c) -> void {
-        in_order_window_map(m_root, [c](auto& tree) {
-            auto window = *tree->client;
+
+        auto mapper = [c](auto& window) {
+            // auto window = window_opt;
             namespace xcm = cx::xcb_config_masks;
-            const auto& [x, y, width, height] = tree->client->geometry.xcb_value_list();
+            const auto& [x, y, width, height] = window.geometry.xcb_value_list();
             auto frame_properties = xcm::TELEPORT;
             auto child_properties = xcm::RESIZE;
             cx::uint frame_values[] = { x, y, width, height };
@@ -70,7 +71,9 @@ namespace cx::workspace
                     DBGLOG("Failed to configure item {}. Error code: {}", err->resource_id, err->error_code);
                 }
             }
-        });
+        };
+        in_order_window_map(m_root, mapper);
+        std::for_each(m_floating_containers.begin(), m_floating_containers.end(), mapper);
     }
 
     void Workspace::rotate_focus_layout() {
@@ -135,7 +138,7 @@ namespace cx::workspace
             return false;
         });
         if(c) {
-            cx::println("Focused client is: [Frame: {}, Client: {}]", c.value()->client->client_id, c.value()->client->frame_id);
+            DBGLOG("Focused client is: [Frame: {}, Client: {}]", c.value()->client->frame_id, c.value()->client->client_id);
             focused_container = *c;
         } else {
             cx::println("Could not find managed window with id {}", xwin);
