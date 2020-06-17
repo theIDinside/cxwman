@@ -23,10 +23,10 @@ namespace cx::workspace
         assert(!client.has_value() && "Client should not be set using this constructor");
     }
 
-    ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, std::size_t height) :   
+    ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout, std::size_t height) :
         tag(std::move(container_tag)), client{}, 
         left(nullptr), right(nullptr), parent(parent), 
-        policy(Layout::Vertical), split_ratio(0.5),
+        policy(layout), split_ratio(0.5),
         geometry(geometry), height(height) 
     {
 
@@ -63,8 +63,8 @@ namespace cx::workspace
             auto con_prefix = layout_string(policy);
             tag.clear(); tag.reserve(16); tag = con_prefix; tag.append("_container");
             auto [lsubtree_geometry, rsubtree_geometry] = split(geometry, policy);;
-            left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lsubtree_geometry, this, height+1);
-            right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rsubtree_geometry, this, height+1);
+            left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lsubtree_geometry, this, policy, height+1);
+            right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rsubtree_geometry, this, policy, height+1);
             left->push_client(existing_client);
             right->push_client(new_client);
             client.reset(); // effectively making 'this' of branch type
@@ -72,7 +72,7 @@ namespace cx::workspace
             // default behavior is that each sub-division moves between horizontal / vertical layouts. if it's set to FLOATING we let it be
             if(this->policy == Layout::Vertical) policy = Layout::Horizontal;
             else if(this->policy == Layout::Horizontal) policy = Layout::Vertical;
-            DBGLOG("Container is a split container: {}. Mutating to window", tag);
+            DBGLOG("Window container. Client tag name {}", tag);
             this->tag = new_client.m_tag.m_tag;
             this->client = new_client;  // making 'this' of leaf type
             this->client->set_geometry(this->geometry);
@@ -151,12 +151,8 @@ namespace cx::workspace
 
     /// Windows can freely be swapped with any other window container. 
     bool are_swappable(TreeRef from, TreeRef to) {
-        bool has_left = from->has_left();
-        bool has_right = from->has_right();
-
-
         return  (from->is_window() && to->is_window()) || 
-                ((from->is_split_container() && from->left->is_window() && from->right->is_window()) && to->is_window());
+                (from->is_split_container() && to->is_window());
     }
 
     // This looks rugged...
@@ -191,6 +187,8 @@ namespace cx::workspace
             }
             parent_from->update_subtree_geometry();
             parent_to->update_subtree_geometry();
+        } else {
+            DBGLOG("Root windows can not be moved! {}", "");
         }
     }
 

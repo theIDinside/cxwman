@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.17)
 project(cxwman)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${PROJECT_SOURCE_DIR}/bin/debug)
@@ -27,17 +27,18 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fmt)
 
 if(NOT fmt_POPULATED)
+    message("fmt lib is not populated! Attempting to populate...")
     FetchContent_Populate(fmt)
     add_subdirectory(${fmt_SOURCE_DIR} ${fmt_BINARY_DIR})
 endif()
 
 set(SOURCES src/main.cpp			src/xcom/connect.cpp src/datastructure/geometry.cpp src/xcom/window.cpp src/xcom/workspace.cpp src/datastructure/container.cpp src/xcom/utility/event_table.cpp)
-set(HEADERS src/coreutils/core.hpp	src/xcom/connect.hpp src/datastructure/geometry.hpp src/xcom/window.hpp src/xcom/workspace.hpp src/datastructure/container.hpp src/xcom/utility/event_table.hpp)
+set(HEADERS src/coreutils/core.hpp	src/xcom/connect.hpp src/datastructure/geometry.hpp src/xcom/window.hpp src/xcom/workspace.hpp src/datastructure/container.hpp src/xcom/utility/event_table.hpp src/xcom/utility/config.hpp)
 
 
 add_executable(cxwman ${SOURCES} ${HEADERS})
 target_include_directories(cxwman PRIVATE ./src)
-target_link_libraries(cxwman xcb fmt::fmt xcb-keysyms)
+target_link_libraries(cxwman xcb fmt::fmt xcb-keysyms xcb-ewmh)
 
 add_executable(xcb_test tests/xcb_test.cpp)
 target_link_libraries(xcb_test xcb)
@@ -48,8 +49,7 @@ target_link_libraries(window_evt_gfx xcb)
 add_executable(xcb_glx tests/xcb_glx.cpp)
 target_link_libraries(xcb_glx xcb GL X11 X11-xcb)
 
-
-
+message("What build type is CLION setting it to, one might wonder?")
 if(CMAKE_BUILD_TYPE STREQUAL Release)
     message("Build type is ${CMAKE_BUILD_TYPE}. Copying assets to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE}")
     message("Release has instrumentation features disabled. To enable instrumentation for Release mode, build with type ReleaseInst.")

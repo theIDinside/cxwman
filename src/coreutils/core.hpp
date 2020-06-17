@@ -18,10 +18,8 @@ namespace cx
     using f32 = float;
     using f64 = double;
 
-
-
-    template <typename... Args>
-    constexpr void println(const char* format_str, Args... args)
+    template <std::size_t N, typename... Args>
+    constexpr void println(const char (&format_str)[N], Args... args)
     {
         using fmt_str_t = decltype(format_str);
         fmt::print(std::forward<fmt_str_t>(format_str), std::forward<Args>(args)...);

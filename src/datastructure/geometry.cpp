@@ -28,6 +28,7 @@ namespace cx::geom
     bool aabb_collision(const Geometry& a, const Geometry& b) {
         auto x_collision = ((a.x() + a.width >= b.x()) && (b.x() + b.width >= a.x()));
         auto y_collision = ((a.y() + a.height >= b.y()) && (b.y() + b.height >= a.y()));
+        return x_collision && y_collision;
     }
 
 } // namespace cx::geom

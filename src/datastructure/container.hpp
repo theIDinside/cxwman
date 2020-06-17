@@ -41,7 +41,7 @@ namespace cx::workspace
         using TreePtr   = ContainerTree*;
 
         explicit ContainerTree(std::string container_tag, geom::Geometry geometry);
-        explicit ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, std::size_t height);
+        explicit ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout, std::size_t height);
         ~ContainerTree();
 
         std::string tag;
