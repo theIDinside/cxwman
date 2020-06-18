@@ -4,9 +4,8 @@
 #include <set>
 
 #include <memory>
-#include <xcb/xcb.h>
 #include <string_view>
-
+#include <xcb/xcb.h>
 
 // Third party headers
 
@@ -17,8 +16,6 @@
 #include <xcom/utility/config.hpp>
 #include <xcom/workspace.hpp>
 
-
-
 namespace cx
 {
 
@@ -27,6 +24,21 @@ namespace cx
     using XCBScreen = xcb_screen_t;
     using XCBDrawable = xcb_drawable_t;
     using XCBWindow = xcb_window_t;
+
+    struct XInternals {
+        XInternals(XCBConn *c, XCBScreen *scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh)
+            : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh)
+        {
+
+        }
+        ~XInternals() = default;
+        XCBConn *c;
+        XCBScreen *screen;
+        XCBDrawable root_drawable;
+        XCBWindow root_window;
+        XCBWindow ewmh_window;
+    };
+
 
     // Yanked from the define in i3, to be used for our root window as well
     constexpr auto ROOT_EVENT_MASK =
@@ -63,7 +75,7 @@ namespace cx
         void event_loop();
 
       private:
-        Manager(XCBConn *connection, XCBScreen *screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window);
+        Manager(XCBConn *connection, XCBScreen *screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window) noexcept;
 
         [[nodiscard]] inline auto get_conn() const -> XCBConn *;
         [[nodiscard]] inline auto get_root() const -> XCBWindow;
@@ -97,35 +109,21 @@ namespace cx
         // We assume that most windows were not mapped/created before our WM started
         auto frame_window(XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false)
             -> void;
-        auto unframe_window(ws::Window w) -> void;
+        auto unframe_window(const ws::Window& w) -> void;
 
         auto configure_window_geometry(ws::Window w) -> void;
 
         // TODO(implement): Unmaps currently focused workspace, and maps workspace ws
         auto map_workspace(ws::Workspace &ws) -> void;
-
-        // TODO(remove/fix): this is data we will in the future receive from the Workspace type
-        auto get_free_top_left() -> geom::Position;
-
+        auto add_workspace(const std::string &workspace_tag, std::size_t screen_number = 0) -> void;
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.
-        struct XInternals {
-            XInternals(XCBConn *c, XCBScreen *scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh)
-                : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh)
-            {
-            }
-            ~XInternals() {}
-            XCBConn *c;
-            XCBScreen *screen;
-            XCBDrawable root_drawable;
-            XCBWindow root_window;
-            XCBWindow ewmh_window;
-        } x_detail;
-
+        XInternals x_detail;
         bool m_running;
         std::map<xcb_window_t, xcb_window_t> client_to_frame_mapping;
         std::map<xcb_window_t, xcb_window_t> frame_to_client_mapping;
         std::map<std::size_t, std::function<auto()->void>> actions;
         ws::Workspace *focused_ws;
+        std::vector<std::unique_ptr<ws::Workspace>> m_workspaces;
     };
 } // namespace cx

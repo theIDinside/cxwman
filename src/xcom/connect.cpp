@@ -8,10 +8,10 @@
 
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_ewmh.h>
-#include <xcb/xcb_icccm.h>
 #include <xcb/xcb_keysyms.h>
 
 #include <algorithm>
+#include <memory>
 
 #define CXGRABMODE XCB_GRAB_MODE_ASYNC
 namespace cx
@@ -63,14 +63,14 @@ namespace cx
 
     namespace debug
     {
-        void print_modifiers(uint32_t mask)
+        [[maybe_unused]] void print_modifiers(std::uint32_t mask)
         {
             const char *MODIFIERS[] = {"Shift", "Lock",    "Ctrl",    "Alt",     "Mod2",    "Mod3",   "Mod4",
                                        "Mod5",  "Button1", "Button2", "Button3", "Button4", "Button5"};
 
             fmt::print("Modifier mask: ");
-            for (const char **modifier = MODIFIERS; mask; mask >>= 1, ++modifier) {
-                if (mask & 1) {
+            for (const char **modifier = MODIFIERS; mask; mask >>= 1U, ++modifier) {
+                if (mask & 1U) {
                     fmt::print(*modifier);
                 }
             }
@@ -102,8 +102,9 @@ namespace cx
     void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window)
     {
         auto mouse_button = 1; // left mouse button, 2 middle, 3 right, MouseModMask is alt + mouse click
-        auto PRESS_AND_RELEASE_MASK =
-            XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
+
+        auto PRESS_AND_RELEASE_MASK = (cx::u32)XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE |
+                                      (cx::u16)XCB_EVENT_MASK_ENTER_WINDOW | (cx::u16)XCB_EVENT_MASK_LEAVE_WINDOW;
         while (mouse_button < 4) {
             auto ck = xcb_grab_button_checked(conn, 0, window, PRESS_AND_RELEASE_MASK, CXGRABMODE, CXGRABMODE, window, XCB_NONE,
                                               mouse_button, XCB_MOD_MASK_ANY);
@@ -233,10 +234,12 @@ namespace cx
     void Manager::setup_root_workspace_container()
     {
         // auto win_geom = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), get_root()), nullptr);
-        this->focused_ws = new workspace::Workspace(0, "Workspace 1", geom::Geometry{0, 0, 800, 600});
+        add_workspace("Workspace 1", 0);
+        this->focused_ws = m_workspaces[0].get();
     }
 
-    // Fixme: Currently pressing on client menus and specific buttons doesn't work. This has got to have to be because we set some flags wrong, (or possibly not at all). Perhaps look to i3 for help?
+    // Fixme: Currently pressing on client menus and specific buttons doesn't work. This has got to have to be because we set some flags
+    // wrong, (or possibly not at all). Perhaps look to i3 for help?
 
     std::unique_ptr<Manager> Manager::initialize()
     {
@@ -333,9 +336,10 @@ namespace cx
     }
 
     // Private constructor called via public interface function Manager::initialize()
-    Manager::Manager(XCBConn *connection, XCBScreen *screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window)
+    Manager::Manager(XCBConn *connection, XCBScreen *screen, XCBDrawable root_drawable, XCBWindow root_window,
+                     XCBWindow ewmh_window) noexcept
         : x_detail{connection, screen, root_drawable, root_window, ewmh_window},
-          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}
+          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}
     {
         // TODO: Set up key-combo-configurations with bindings like this? Or unnecessarily complex?
         actions[27] = [this]() {
@@ -363,7 +367,8 @@ namespace cx
     {
         // DBGLOG("Handle unmap request for {}", event->window);
         auto window_container = focused_ws->find_window(event->window);
-        if(window_container) {
+
+        if (window_container) {
             cx::println("Found window to unmap. Not yet implemented!");
             // unframe_window(*window);
             auto window = *window_container.value()->client;
@@ -477,12 +482,11 @@ namespace cx
         values[0] = border_color;
         mask |= XCB_CW_EVENT_MASK;
         // FIXME(Client menus): Should work, but currently doesn't. Perhaps some flag wrong set, or not set at all?
-        values[1] = XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
+        values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
                     XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
 
-        cookies[0] =
-            xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
-                                      border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
+        cookies[0] = xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
+                                               border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
 
         cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 0, 0);
 
@@ -523,7 +527,8 @@ namespace cx
         delete client_geometry;
     }
 
-    auto Manager::unframe_window(ws::Window w) -> void {
+    auto Manager::unframe_window(const ws::Window& w) -> void
+    {
         xcb_unmap_window(get_conn(), w.frame_id);
         xcb_reparent_window(get_conn(), w.client_id, get_root(), 0, 0);
         xcb_destroy_window(get_conn(), w.frame_id);
@@ -619,5 +624,9 @@ namespace cx
                 }
             }
         }
+    }
+    auto Manager::add_workspace(const std::string &workspace_tag, std::size_t screen_number) -> void
+    {
+        m_workspaces.emplace_back(std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, 0, 800, 600}));
     }
 } // namespace cx
