@@ -29,7 +29,6 @@ namespace cx
         XInternals(XCBConn *c, XCBScreen *scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh)
             : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh)
         {
-
         }
         ~XInternals() = default;
         XCBConn *c;
@@ -38,7 +37,6 @@ namespace cx
         XCBWindow root_window;
         XCBWindow ewmh_window;
     };
-
 
     // Yanked from the define in i3, to be used for our root window as well
     constexpr auto ROOT_EVENT_MASK =
@@ -109,7 +107,7 @@ namespace cx
         // We assume that most windows were not mapped/created before our WM started
         auto frame_window(XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false)
             -> void;
-        auto unframe_window(const ws::Window& w) -> void;
+        auto unframe_window(const ws::Window &w) -> void;
 
         auto configure_window_geometry(ws::Window w) -> void;
 

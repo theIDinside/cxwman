@@ -1,11 +1,11 @@
 #pragma once
+#include <cstring>
 #include <fmt/core.h>
 #include <string_view>
-#include <cstring>
 
 // These re-defines are just to more clearly state intent
 #define local_persist static
-#define global static
+#define global        static
 
 namespace cx
 {
@@ -31,7 +31,7 @@ namespace cx
 #define NOLOG()
 
 #ifdef DEBUGGING
-#define DBGLOG(message, ...) LOG(message, __VA_ARGS__)
+#    define DBGLOG(message, ...) LOG(message, __VA_ARGS__)
 #else
-#define DBGLOG(message, ...) NOLOG()
+#    define DBGLOG(message, ...) NOLOG()
 #endif

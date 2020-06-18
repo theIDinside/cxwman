@@ -103,8 +103,8 @@ namespace cx
     {
         auto mouse_button = 1; // left mouse button, 2 middle, 3 right, MouseModMask is alt + mouse click
 
-        auto PRESS_AND_RELEASE_MASK = (cx::u32)XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE |
-                                      (cx::u16)XCB_EVENT_MASK_ENTER_WINDOW | (cx::u16)XCB_EVENT_MASK_LEAVE_WINDOW;
+        auto PRESS_AND_RELEASE_MASK = (cx::u32)XCB_EVENT_MASK_BUTTON_PRESS | (cx::u32)XCB_EVENT_MASK_BUTTON_RELEASE |
+                                      (cx::u32)XCB_EVENT_MASK_ENTER_WINDOW | (cx::u32)XCB_EVENT_MASK_LEAVE_WINDOW;
         while (mouse_button < 4) {
             auto ck = xcb_grab_button_checked(conn, 0, window, PRESS_AND_RELEASE_MASK, CXGRABMODE, CXGRABMODE, window, XCB_NONE,
                                               mouse_button, XCB_MOD_MASK_ANY);
@@ -189,6 +189,7 @@ namespace cx
             cx::println("Failed to allocate keysymbol table... perhaps?");
         }
     }
+    // TODO(implement): Get all 35 atoms that i3 support, and filter out the ones we probably won't need
     template <typename StrView, std::size_t N>
     auto get_supported_atoms(XCBConn *c, const StrView (&names)[N]) -> std::array<xcb_atom_t, N>
     {
@@ -527,7 +528,7 @@ namespace cx
         delete client_geometry;
     }
 
-    auto Manager::unframe_window(const ws::Window& w) -> void
+    auto Manager::unframe_window(const ws::Window &w) -> void
     {
         xcb_unmap_window(get_conn(), w.frame_id);
         xcb_reparent_window(get_conn(), w.client_id, get_root(), 0, 0);
