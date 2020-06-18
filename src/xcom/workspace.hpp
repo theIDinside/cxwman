@@ -33,6 +33,7 @@ namespace cx::workspace
         // Constructors & initializers
         Workspace(cx::uint ws_id, std::string ws_name, cx::geom::Geometry space);
         // This destructor has to be handled... very well defined. When we throw away a workspace, where will the windows end up?
+        Workspace(Workspace&&) = default;
         ~Workspace() = default;
 
         // Members private & public
@@ -75,6 +76,6 @@ namespace cx::workspace
         // This gets all clients as a vector of references (not the v/h split containers that is)
         std::vector<ContainerTree*> get_clients();
 
-        void anchor_new_root(TreeOwned new_root, const std::string& tag)
+        void anchor_new_root(TreeOwned new_root, const std::string& tag);
     };
 } // namespace cx::workspace

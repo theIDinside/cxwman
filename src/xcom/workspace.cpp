@@ -19,7 +19,7 @@ namespace cx::workspace
     }
 
     auto Workspace::register_window(Window window, bool tiled) -> std::optional<SplitConfigurations> {
-        DBGLOG("Warning - function {} not implemented or implemented to test simple use cases", "Workspace::register_window");
+        DBGLOG("Warning - function {} not implemented or implemented to test simple use cases", "Wo rkspace::register_window");
         if(tiled) { 
             if(!focused_container->is_window()) {
                 focused_container->push_client(window);

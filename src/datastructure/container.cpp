@@ -50,10 +50,6 @@ namespace cx::workspace
 
     bool ContainerTree::is_window() const { return client.has_value(); }
 
-    bool ContainerTree::has_left() const { return left != nullptr; }
-
-    bool ContainerTree::has_right() const { return right != nullptr; }
-
     void ContainerTree::push_client(Window new_client)
     {
         if (is_window()) {
@@ -82,27 +78,6 @@ namespace cx::workspace
             this->client = new_client; // making 'this' of leaf type
             this->client->set_geometry(this->geometry);
         }
-    }
-
-    void ContainerTree::update_geometry_from_parent()
-    {
-        if (!is_root()) {
-            if (parent->left.get() == this) {
-                cx::println("We are left child");
-                this->geometry = parent->child_requesting_geometry(BranchDir::Left);
-            } else if (parent->right.get() == this) {
-                cx::println("We are right child");
-                this->geometry = parent->child_requesting_geometry(BranchDir::Right);
-            }
-        }
-        if (client)
-            client->set_geometry(geometry);
-    }
-
-    geom::Geometry ContainerTree::child_requesting_geometry(BranchDir dir)
-    {
-        auto [ltree_geometry, rtree_geometry] = split(geometry, policy);
-        return (dir == BranchDir::Left) ? ltree_geometry : rtree_geometry;
     }
 
     void ContainerTree::update_subtree_geometry()
@@ -136,12 +111,6 @@ namespace cx::workspace
         // else means it's floating, which we don't switch to or from
     }
 
-    void ContainerTree::swap_clients(TreeRef other)
-    {
-        if (this->is_window() && other->is_window()) {
-            other->client.swap(client);
-        }
-    }
     /// Changes the layout of a client tile-pair on the screen between horizontal/vertical
     void ContainerTree::rotate_container_layout()
     {
@@ -157,12 +126,6 @@ namespace cx::workspace
             parent->left.swap(parent->right);
             parent->update_subtree_geometry();
         }
-    }
-
-    /// Windows can freely be swapped with any other window container.
-    bool are_swappable(TreeRef from, TreeRef to)
-    {
-        return (from->is_window() && to->is_window()) || (from->is_split_container() && to->is_window());
     }
 
     // This looks rugged...

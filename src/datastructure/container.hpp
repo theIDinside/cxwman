@@ -50,15 +50,10 @@ namespace cx::workspace
         [[nodiscard]] bool is_root() const;
         [[nodiscard]] bool is_split_container() const; // basically "is_branch?"
         [[nodiscard]] bool is_window() const;          // basically "is_leaf?"
-        [[nodiscard]] bool has_left() const;           // TODO: remove these?
-        [[nodiscard]] bool has_right() const;          // TODO: remove these?
 
         void push_client(Window new_client);
-        void update_geometry_from_parent(); // TODO: cleanup?
-        geom::Geometry child_requesting_geometry(BranchDir dir);
         void update_subtree_geometry();
         void switch_layout_policy();
-        void swap_clients(TreeRef other); // TODO: cleanup?
 
         void rotate_container_layout();
         void rotate_children();
@@ -69,7 +64,6 @@ namespace cx::workspace
         // run MapFn on each item in the tree, that is of window "type"
         template <typename MapFn>
         friend auto in_order_window_map(std::unique_ptr<ContainerTree> &tree, MapFn fn) -> void;
-        friend bool are_swappable(TreeRef from, TreeRef to);
         friend void move_client(ContainerTree *from, ContainerTree *to);
         // Promote's child to parent. This function also calls update_subtree_geometry on promoted child so all it's children get proper
         // geometries
@@ -82,7 +76,6 @@ namespace cx::workspace
     };
     using TreeRef = std::unique_ptr<ContainerTree> &;
     using TreeOwned = std::unique_ptr<ContainerTree>;
-    bool are_swappable(TreeRef from, TreeRef to);
     void move_client(ContainerTree *from, ContainerTree *to);
     [[maybe_unused]] void promote_child(std::unique_ptr<ContainerTree> child, ContainerTree *parent);
     std::unique_ptr<ContainerTree> make_tree(std::string ws_tag);
