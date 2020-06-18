@@ -30,6 +30,8 @@ namespace cx
 #define LOG(message, ...) cx::println(message, __VA_ARGS__)
 #define NOLOG()
 
+
+
 #ifdef DEBUGGING
 #define DBGLOG(message, ...) LOG(message, __VA_ARGS__)
 #else

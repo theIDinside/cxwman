@@ -29,10 +29,11 @@ namespace cx::workspace
     };
 
     struct Workspace {
+        using TreeOwned = ContainerTree::TreeOwned;
         // Constructors & initializers
         Workspace(cx::uint ws_id, std::string ws_name, cx::geom::Geometry space);
         // This destructor has to be handled... very well defined. When we throw away a workspace, where will the windows end up?
-        ~Workspace();
+        ~Workspace() = default;
 
         // Members private & public
         cx::uint m_id;
@@ -50,7 +51,7 @@ namespace cx::workspace
          * not the individual workspace
          */
         auto register_window(Window w, bool tiled=true) -> std::optional<SplitConfigurations>;
-        auto unregister_window(Window* w) -> std::unique_ptr<Window>;
+        auto unregister_window(ContainerTree* t) -> void;
 
         /// Searches the ContainerTree in order, for a window with the id of xwin
         auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
@@ -73,5 +74,7 @@ namespace cx::workspace
         
         // This gets all clients as a vector of references (not the v/h split containers that is)
         std::vector<ContainerTree*> get_clients();
+
+        void anchor_new_root(TreeOwned new_root, const std::string& tag)
     };
 } // namespace cx::workspace

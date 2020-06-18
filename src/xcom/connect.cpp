@@ -233,7 +233,7 @@ namespace cx
     void Manager::setup_root_workspace_container()
     {
         // auto win_geom = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), get_root()), nullptr);
-        this->focused_ws = new workspace::Workspace{0, "Workspace 1", geom::Geometry{0, 0, 800, 600}};
+        this->focused_ws = new workspace::Workspace(0, "Workspace 1", geom::Geometry{0, 0, 800, 600});
     }
 
     // Fixme: Currently pressing on client menus and specific buttons doesn't work. This has got to have to be because we set some flags wrong, (or possibly not at all). Perhaps look to i3 for help?
@@ -354,18 +354,23 @@ namespace cx
     auto Manager::handle_map_request(xcb_map_request_event_t *evt) -> void
     {
         local_persist int map_requests{};
-        DBGLOG("Handling map request of window with id {}. #{}", evt->window, map_requests++);
+        // DBGLOG("Handling map request of window with id {}. #{}", evt->window, map_requests++);
         frame_window(evt->window);
         xcb_map_window(get_conn(), evt->window);
     }
 
     auto Manager::handle_unmap_request(xcb_unmap_window_request_t *event) -> void
     {
-        if (client_to_frame_mapping.count(event->window) == 0)
-            return;
-        auto window = focused_ws->find_window(event->window);
-        // unframe_window(*window);
-        // focused_ws->unregister_window(&window.value());
+        // DBGLOG("Handle unmap request for {}", event->window);
+        auto window_container = focused_ws->find_window(event->window);
+        if(window_container) {
+            cx::println("Found window to unmap. Not yet implemented!");
+            // unframe_window(*window);
+            auto window = *window_container.value()->client;
+            focused_ws->unregister_window(*window_container);
+            unframe_window(window);
+            focused_ws->display_update(get_conn());
+        }
     }
 
     auto Manager::handle_config_request(xcb_configure_request_event_t *e) -> void
@@ -518,7 +523,11 @@ namespace cx
         delete client_geometry;
     }
 
-    auto Manager::unframe_window(ws::Window w) -> void {}
+    auto Manager::unframe_window(ws::Window w) -> void {
+        xcb_unmap_window(get_conn(), w.frame_id);
+        xcb_reparent_window(get_conn(), w.client_id, get_root(), 0, 0);
+        xcb_destroy_window(get_conn(), w.frame_id);
+    }
 
     auto Manager::configure_window_geometry(ws::Window window) -> void
     {
@@ -581,7 +590,6 @@ namespace cx
                     break;
                 }
                 case XCB_BUTTON_RELEASE:
-                    cx::println("Button released");
                     break;
                 case XCB_KEY_PRESS: {
                     auto e = (xcb_key_press_event_t *)evt;
@@ -602,7 +610,6 @@ namespace cx
                     break;
                 }
                 case XCB_KEY_RELEASE:
-                    cx::println("Key released");
                     break;
                 case XCB_EXPOSE: {
                     auto e = (xcb_expose_event_t *)evt;

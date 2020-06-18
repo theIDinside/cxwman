@@ -9,11 +9,13 @@ namespace cx::workspace
         m_space(space), 
         m_containers(nullptr), 
         m_floating_containers{},
-        m_root{std::make_unique<ContainerTree>("root container", geom::Geometry::default_new())},
+        m_root{ContainerTree::make_root("root container", space, Layout::Horizontal)},
         focused_container(nullptr), 
         is_pristine(true)
     {
+        // std::make_unique<ContainerTree>("root container", geom::Geometry::default_new())
         focused_container = m_root.get();
+        m_root->parent = m_root.get();
     }
 
     auto Workspace::register_window(Window window, bool tiled) -> std::optional<SplitConfigurations> {
@@ -37,11 +39,40 @@ namespace cx::workspace
             return {};
         }
     }
-
-    std::unique_ptr<Window> Workspace::unregister_window(Window* w) {
-        cx::println("Unregistering windows not yet implemented");
-        std::abort();
-        return {};
+    // TODO: Promote sibling in client-pair to parent and destroy child t
+    auto Workspace::unregister_window(ContainerTree* t) -> void {
+        auto& left_sibling = t->parent->left;
+        auto& right_sibling = t->parent->right;
+        if(focused_container == t) {
+            // cx::println("This window is about to be unregistered. Focus pointer must be re-focused on another client");
+            auto xwin = t->client->client_id;
+            auto predicate = [xwin](auto& c_tree) {
+              if(c_tree->is_window()) {
+                  if(c_tree->client->client_id == xwin || c_tree->client->frame_id == xwin) return true;
+              }
+              return false;
+            };
+        }
+        if(t->is_window()) {
+            if(left_sibling && right_sibling) {
+                if(!t->parent->is_root()) {
+                    if(left_sibling.get() == t) {
+                        // FIXME: Workspace's FOCUS POINTER must be set somewhere
+                        promote_child(std::move(t->parent->right), t->parent);
+                    } else if(right_sibling.get() == t) {
+                        promote_child(std::move(t->parent->left), t->parent);
+                    }
+                } else {
+                    auto root_tag = m_root->tag;
+                    if(left_sibling.get() == t) {
+                        anchor_new_root(std::move(t->parent->right), root_tag);
+                    } else if(right_sibling.get() == t) {
+                        anchor_new_root(std::move(t->parent->left), root_tag);
+                    }
+                    m_root->update_subtree_geometry();
+                }
+            }
+        }
     }
 
     auto Workspace::find_window(xcb_window_t xwin) -> std::optional<ContainerTree*> {
@@ -165,5 +196,12 @@ namespace cx::workspace
         }
         DBGLOG("Found {} clients in workspace. {} left on stack", clients.size(), iterator_stack.size());
         return clients;
+    }
+    void Workspace::anchor_new_root(TreeOwned new_root, const std::string &tag) {
+        m_root = std::move(new_root);
+        m_root->tag = tag;
+        m_root->geometry = m_space;
+        m_root->client->set_geometry(m_space);
+        m_root->parent = m_root.get();
     }
 };
