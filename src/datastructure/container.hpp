@@ -29,7 +29,7 @@ namespace cx::workspace
         }
     }
 
-    auto split(const geom::Geometry geometry, Layout layout, float split_ratio = 0.5f);
+    auto split(const geom::Geometry& geometry, Layout layout, float split_ratio = 0.5f);
     
     /**
      * ContainerTree emulates a tree type which is a discriminated union. To fully make it as such, one should probably have it's "data"
@@ -40,8 +40,8 @@ namespace cx::workspace
         using TreeOwned = std::unique_ptr<ContainerTree>;
         using TreePtr   = ContainerTree*;
 
-        explicit ContainerTree(std::string container_tag, geom::Geometry geometry);
-        explicit ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout, std::size_t height);
+        explicit ContainerTree(std::string container_tag, geom::Geometry geometry) noexcept;
+        explicit ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout, std::size_t height) noexcept;
         ~ContainerTree();
 
         std::string tag;
@@ -54,19 +54,18 @@ namespace cx::workspace
         std::size_t height;
 
 
-        void register_window(Window w);
-        bool is_root() const;
-        bool is_split_container() const;        // basically "is_branch?"
-        bool is_window() const;                 // basically "is_leaf?"
-        bool has_left() const;                  // TODO: remove these? 
-        bool has_right() const;                 // TODO: remove these?
+        [[nodiscard]] bool is_root() const;
+        [[nodiscard]] bool is_split_container() const;        // basically "is_branch?"
+        [[nodiscard]] bool is_window() const;                 // basically "is_leaf?"
+        [[nodiscard]] bool has_left() const;                  // TODO: remove these?
+        [[nodiscard]] bool has_right() const;                 // TODO: remove these?
 
         void push_client(Window new_client);
-        void update_geometry_from_parent();
+        void update_geometry_from_parent();     // TODO: cleanup?
         geom::Geometry child_requesting_geometry(BranchDir dir);
         void update_subtree_geometry();
         void switch_layout_policy();
-        void swap_clients(TreeRef other);
+        void swap_clients(TreeRef other);       // TODO: cleanup?
 
         void rotate_container_layout();
         void rotate_children();

@@ -6,15 +6,15 @@ namespace cx::workspace
 
     // If layout policy is FLOATING, passing that in here will return Vertical.
     // But as a matter of fact, splitting a floating window makes no sense. So it means you are dumb.
-    auto split(const geom::Geometry geometry, Layout policy, float split_ratio) {
+    auto split(const geom::Geometry& geometry, Layout policy, float split_ratio) {
         if(policy == Layout::Horizontal) {
-            return geom::vsplit(geometry, split_ratio);
+            return geom::v_split(geometry, split_ratio);
         } else {
-            return geom::hsplit(geometry, split_ratio);
+            return geom::h_split(geometry, split_ratio);
         }
     }
 
-    ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry) :   
+    ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry) noexcept :
         tag(std::move(container_tag)), client{}, 
         left(nullptr), right(nullptr), parent(nullptr), 
         policy(Layout::Vertical), split_ratio(0.5),
@@ -23,7 +23,7 @@ namespace cx::workspace
         assert(!client.has_value() && "Client should not be set using this constructor");
     }
 
-    ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout, std::size_t height) :
+    ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout, std::size_t height) noexcept :
         tag(std::move(container_tag)), client{}, 
         left(nullptr), right(nullptr), parent(parent), 
         policy(layout), split_ratio(0.5),
@@ -32,7 +32,7 @@ namespace cx::workspace
 
     }
 
-    ContainerTree::~ContainerTree() { }
+    ContainerTree::~ContainerTree() = default;
     
     bool ContainerTree::is_root() const {
         return this->parent == this;
@@ -53,9 +53,7 @@ namespace cx::workspace
     bool ContainerTree::has_right() const {
         return right != nullptr;
     }
-    // TODO(fix): This assumes we are always focusing a "bottom-most" window. So this will
-    // cause errors in display, if we focus on a window that isn't newly created. This will of course be fixed.
-    // I just want to see that mapping 4 windows of equal size to each corner works initially & automatically
+
     void ContainerTree::push_client(Window new_client) {
         if(is_window()) {
             DBGLOG("ContainerTree node {} is window. Mutating to split container", tag);

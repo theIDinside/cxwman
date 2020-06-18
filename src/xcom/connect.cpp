@@ -236,6 +236,8 @@ namespace cx
         this->focused_ws = new workspace::Workspace{0, "Workspace 1", geom::Geometry{0, 0, 800, 600}};
     }
 
+    // Fixme: Currently pressing on client menus and specific buttons doesn't work. This has got to have to be because we set some flags wrong, (or possibly not at all). Perhaps look to i3 for help?
+
     std::unique_ptr<Manager> Manager::initialize()
     {
         int screen_number;
@@ -267,9 +269,7 @@ namespace cx
         setup_mouse_button_request_handling(c, window);
         setup_redirection_of_map_requests(c, window);
         setup_key_press_listening(c, window);
-        // TODO: tell X we reparent windows, because we are the manager
         // TODO: grab keys & set up keysymbols and configs
-
         auto ewmh_window = xcb_generate_id(c);
         xcb_create_window(c, XCB_COPY_FROM_PARENT, ewmh_window, window, -1, -1, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY, XCB_COPY_FROM_PARENT,
                           XCB_CW_OVERRIDE_REDIRECT, (uint32_t[]){1});
@@ -350,7 +350,7 @@ namespace cx
 
     [[nodiscard]] inline auto Manager::get_screen() const -> XCBScreen * { return x_detail.screen; }
 
-    // TODO(Workspace, Tiling): handle where, and what properties the to-be mapped window should have
+    // TODO(EWMHints): Grab EWM hints & set up supported hints
     auto Manager::handle_map_request(xcb_map_request_event_t *evt) -> void
     {
         local_persist int map_requests{};
@@ -438,7 +438,8 @@ namespace cx
         }
     }
 
-    // TODO(Workspace, Tiling): Add params, that are passed from handle_map_request, then map window accordingly
+    // Fixme: Make sure client specific functionality isn't lost after re-parenting (such as client menu's should continue working)
+    // Fixme: Does not showing client popup/dropdown menus have to do with not mapping their windows? (test basic_wm and see)
     auto Manager::frame_window(XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
     {
         std::array<xcb_void_cookie_t, 4> cookies{};
@@ -462,10 +463,7 @@ namespace cx
         // construct frame
         auto frame_id = xcb_generate_id(get_conn());
 
-        // TODO(implement): Where the frame window gets placed, is decided by us.
         // Where that is, depends on how we split subspaces, layout strategies etc. For now, we just put it at 0, 0
-        auto pos_x = 0;
-        auto pos_y = 0;
 
         uint32_t mask = 0;
         uint32_t values[2];
@@ -473,11 +471,12 @@ namespace cx
         mask = XCB_CW_BORDER_PIXEL;
         values[0] = border_color;
         mask |= XCB_CW_EVENT_MASK;
+        // FIXME(Client menus): Should work, but currently doesn't. Perhaps some flag wrong set, or not set at all?
         values[1] = XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
                     XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
 
         cookies[0] =
-            xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), pos_x, pos_y, client_geometry->width, client_geometry->height,
+            xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
                                       border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
 
         cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 0, 0);
@@ -527,10 +526,9 @@ namespace cx
         const auto &[x, y, width, height] = window.geometry.xcb_value_list();
         auto frame_properties = xcm::TELEPORT;
         auto child_properties = xcm::RESIZE;
-        cx::uint frame_values[] = {x, y, width, height};
+        // cx::uint frame_values[] = {x, y, width, height};
         cx::uint child_values[] = {width, height};
-
-        auto cookies = CONFIG_CX_WINDOW(window, frame_properties, frame_values, child_properties, child_values);
+        auto cookies = CONFIG_CX_WINDOW(window, frame_properties, window.geometry.xcb_value_list().data(), child_properties, child_values);
         for (const auto &cookie : cookies) {
             if (auto err = xcb_request_check(get_conn(), cookie); err) {
                 DBGLOG("Failed to configure item {}. Error code: {}", err->resource_id, err->error_code);
