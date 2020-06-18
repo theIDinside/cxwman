@@ -15,7 +15,7 @@
 namespace cx::workspace
 {
 
-    constexpr auto is_window_predicate = [](ContainerTree *t) { return t->is_window(); };
+    constexpr auto is_window_predicate = [](ContainerTree* t) { return t->is_window(); };
 
     struct SplitConfigurations {
         SplitConfigurations() : existing_window{}, new_window{}
@@ -34,7 +34,7 @@ namespace cx::workspace
         // Constructors & initializers
         Workspace(cx::uint ws_id, std::string ws_name, cx::geom::Geometry space);
         // This destructor has to be handled... very well defined. When we throw away a workspace, where will the windows end up?
-        Workspace(Workspace &&) = default;
+        Workspace(Workspace&&) = default;
         ~Workspace() = default;
 
         // Members private & public
@@ -45,20 +45,20 @@ namespace cx::workspace
         std::unique_ptr<ContainerTree> m_containers;
         std::vector<Window> m_floating_containers;
         std::unique_ptr<ContainerTree> m_root;
-        ContainerTree *focused_container;
+        ContainerTree* focused_container;
 
         /**
          * Returns geometry to the manager where we have stored this client, and where it should be mapped to. Mapping is still handled by
          * the manager not the individual workspace
          */
         auto register_window(Window w, bool tiled = true) -> std::optional<SplitConfigurations>;
-        auto unregister_window(ContainerTree *t) -> void;
+        auto unregister_window(ContainerTree* t) -> void;
 
         /// Searches the ContainerTree in order, for a window with the id of xwin
-        auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree *>;
+        auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
         /// Traverses the ContainerTree for this workspace in order, and calls xcb_configure for each window with
         /// the properties stored in each ws::Window.
-        auto display_update(xcb_connection_t *c) -> void;
+        auto display_update(xcb_connection_t* c) -> void;
 
         /// rotates the focused client tile-pair layouts
         void rotate_focus_layout();
@@ -75,9 +75,9 @@ namespace cx::workspace
 
         // This gets all clients as a vector of references (not the v/h split containers that is)
 
-        template <typename P>
-        std::vector<ContainerTree *> get_clients(P p = is_window_predicate);
+        template<typename P>
+        std::vector<ContainerTree*> get_clients(P p = is_window_predicate);
 
-        void anchor_new_root(TreeOwned new_root, const std::string &tag);
+        void anchor_new_root(TreeOwned new_root, const std::string& tag);
     };
 } // namespace cx::workspace

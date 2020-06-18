@@ -10,6 +10,6 @@ namespace cx::config
     };
 
     struct KeyConfiguration {
-        std::function<auto() -> void> action;
+        std::function<auto()->void> action;
     };
 } // namespace cx::config

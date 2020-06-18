@@ -26,13 +26,13 @@ namespace cx
     using XCBWindow = xcb_window_t;
 
     struct XInternals {
-        XInternals(XCBConn *c, XCBScreen *scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh)
+        XInternals(XCBConn* c, XCBScreen* scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh)
             : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh)
         {
         }
         ~XInternals() = default;
-        XCBConn *c;
-        XCBScreen *screen;
+        XCBConn* c;
+        XCBScreen* screen;
         XCBDrawable root_drawable;
         XCBWindow root_window;
         XCBWindow ewmh_window;
@@ -40,12 +40,12 @@ namespace cx
 
     // Yanked from the define in i3, to be used for our root window as well
     constexpr auto ROOT_EVENT_MASK =
-        (XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_STRUCTURE_NOTIFY |
-         XCB_EVENT_MASK_POINTER_MOTION | XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_FOCUS_CHANGE | XCB_EVENT_MASK_ENTER_WINDOW);
+        (XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_POINTER_MOTION |
+         XCB_EVENT_MASK_PROPERTY_CHANGE | XCB_EVENT_MASK_FOCUS_CHANGE | XCB_EVENT_MASK_ENTER_WINDOW);
 
-    constexpr auto FRAME_EVENT_MASK = (XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION |
-                                       XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
-                                       XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW);
+    constexpr auto FRAME_EVENT_MASK =
+        (XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_POINTER_MOTION | XCB_EVENT_MASK_EXPOSURE |
+         XCB_EVENT_MASK_STRUCTURE_NOTIFY | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW);
 
     // TODO(simon): These are utility functions, that serve *only* as wrappers,
     // so they become a mental model of what needs to be done, to set up a simplistic window manager
@@ -56,13 +56,13 @@ namespace cx
     // we would check how we layout "our" windows, and then find a suitable place for the
     // soon-to-be mapped window. If we can't find one, in a tiling wm, we split a sub-space somewhere,
     // where a window exists, and let the new window take half that space, for example
-    void setup_redirection_of_map_requests(XCBConn *conn, XCBWindow window);
+    void setup_redirection_of_map_requests(XCBConn* conn, XCBWindow window);
 
     // This setups up, so that we tell the X-server, that we want to be notified of Mouse Button
     // events. This way, we override what needs to be done, so that we can hi-jack button presses in client windows
-    void setup_mouse_button_request_handling(XCBConn *conn, XCBWindow window);
+    void setup_mouse_button_request_handling(XCBConn* conn, XCBWindow window);
 
-    void setup_key_press_listening(XCBConn *conn, XCBWindow root);
+    void setup_key_press_listening(XCBConn* conn, XCBWindow root);
 
     constexpr auto MouseModMask = XCB_MOD_MASK_1;
     class Manager
@@ -73,47 +73,46 @@ namespace cx
         void event_loop();
 
       private:
-        Manager(XCBConn *connection, XCBScreen *screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window) noexcept;
+        Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window) noexcept;
 
-        [[nodiscard]] inline auto get_conn() const -> XCBConn *;
+        [[nodiscard]] inline auto get_conn() const -> XCBConn*;
         [[nodiscard]] inline auto get_root() const -> XCBWindow;
-        [[nodiscard]] inline auto get_screen() const -> XCBScreen *;
+        [[nodiscard]] inline auto get_screen() const -> XCBScreen*;
 
         // This is called after we have initialized the WM. The setup handles reframing of already existing windows
         // and also sets up the workspace(s)
         auto setup() -> void;
         auto setup_root_workspace_container() -> void;
 
-        template <typename XCBCookieType>
+        template<typename XCBCookieType>
         constexpr auto inspect_request(XCBCookieType cookie)
         {
             return xcb_request_check(x_detail.c, cookie);
         }
 
-        template <typename XCBCookieType, typename ErrHandler>
+        template<typename XCBCookieType, typename ErrHandler>
         auto process_request(XCBCookieType cookie, ws::Window w, ErrHandler fn)
         {
-            if (auto err = xcb_request_check(x_detail.c, cookie); err) {
+            if(auto err = xcb_request_check(x_detail.c, cookie); err) {
                 fn(w);
                 delete err;
             }
         }
 
         // EVENT MANAGING
-        auto handle_map_request(xcb_map_request_event_t *event) -> void;
-        auto handle_unmap_request(xcb_unmap_window_request_t *event) -> void;
-        auto handle_config_request(xcb_configure_request_event_t *event) -> void;
+        auto handle_map_request(xcb_map_request_event_t* event) -> void;
+        auto handle_unmap_request(xcb_unmap_window_request_t* event) -> void;
+        auto handle_config_request(xcb_configure_request_event_t* event) -> void;
 
         // We assume that most windows were not mapped/created before our WM started
-        auto frame_window(XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false)
-            -> void;
-        auto unframe_window(const ws::Window &w) -> void;
+        auto frame_window(XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false) -> void;
+        auto unframe_window(const ws::Window& w) -> void;
 
         auto configure_window_geometry(ws::Window w) -> void;
 
         // TODO(implement): Unmaps currently focused workspace, and maps workspace ws
-        auto map_workspace(ws::Workspace &ws) -> void;
-        auto add_workspace(const std::string &workspace_tag, std::size_t screen_number = 0) -> void;
+        auto map_workspace(ws::Workspace& ws) -> void;
+        auto add_workspace(const std::string& workspace_tag, std::size_t screen_number = 0) -> void;
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.
         XInternals x_detail;
@@ -121,7 +120,7 @@ namespace cx
         std::map<xcb_window_t, xcb_window_t> client_to_frame_mapping;
         std::map<xcb_window_t, xcb_window_t> frame_to_client_mapping;
         std::map<std::size_t, std::function<auto()->void>> actions;
-        ws::Workspace *focused_ws;
+        ws::Workspace* focused_ws;
         std::vector<std::unique_ptr<ws::Workspace>> m_workspaces;
     };
 } // namespace cx

@@ -18,7 +18,7 @@ namespace cx::workspace
     struct Window {
 
         Window() noexcept;
-        Window(geom::Geometry g, xcb_window_t client, xcb_window_t frame, const Tag &tag) noexcept;
+        Window(geom::Geometry g, xcb_window_t client, xcb_window_t frame, const Tag& tag) noexcept;
 
         // The size of the window when not maximized
         cx::geom::Geometry original_size;
