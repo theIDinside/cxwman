@@ -26,6 +26,8 @@ namespace cx
         fmt::print("\n");
     }
 
+    // Deduces array type and size by arguments passed. Obviously, these can only be of the same type. But
+    // This is a handy utility function, which will be less error prone when I add/remove key-combos at compile time (in connect.cpp)
     template<typename... Args>
     constexpr auto make_array(Args&&... args)
     {

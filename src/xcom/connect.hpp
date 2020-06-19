@@ -1,8 +1,8 @@
 #pragma once
 // System headers
+#include <filesystem>
 #include <map>
 #include <set>
-#include <filesystem>
 
 #include <memory>
 #include <string_view>
@@ -32,11 +32,8 @@ namespace cx
         XInternals(XCBConn* c, XCBScreen* scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh, xcb_key_symbols_t* symbols)
             : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh), keysyms(symbols)
         {
-
         }
-        ~XInternals() {
-            free(keysyms);
-        }
+        ~XInternals() { free(keysyms); }
         XCBConn* c;
         XCBScreen* screen;
         XCBDrawable root_drawable;
@@ -80,7 +77,8 @@ namespace cx
         void event_loop();
 
       private:
-        Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept;
+        Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window,
+                xcb_key_symbols_t* symbols) noexcept;
 
         [[nodiscard]] inline auto get_conn() const -> XCBConn*;
         [[nodiscard]] inline auto get_root() const -> XCBWindow;
