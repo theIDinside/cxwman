@@ -157,15 +157,13 @@ namespace cx::workspace
     void Workspace::move_focused_up()
     {
         auto target_space = focused_container->center_of_top();
-        target_space.y -= 10; // this is now the position we search for, what client this lands within
+        target_space.y -= 10;                       // this is now the position we search for, what client this lands within
         if(target_space.y < m_root->geometry.y()) { // just like move_focused_down, wrap around, and start looking from the bottom instead
             target_space.y = m_root->geometry.height - 10;
         }
-        cx::println("Target position to look for ({}, {})", target_space.x, target_space.y);
         auto target_client =
             in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
         if(target_client) {
-            cx::println("Found client to move to.");
             move_client(focused_container, *target_client);
         } else {
             DBGLOG("Could not find a suitable window to swap with{}", ".");
@@ -173,19 +171,13 @@ namespace cx::workspace
     }
     void Workspace::move_focused_down()
     {
-        auto target_space =
-            focused_container->center_of_top() + Pos{focused_container->geometry.width / 2, focused_container->geometry.height + 10};
-        // target_space.x += focused_container->geometry.width / 2;
-        // target_space.y += focused_container->geometry.height + 10;
+        auto target_space = focused_container->center_of_top() + Pos{focused_container->geometry.width / 2, focused_container->geometry.height + 10};
         if(target_space.y > m_root->geometry.height) { // wrap around, and look from top of screen space instead
-            cx::println("Target y is greater than root space {} > {}. Wrapping", target_space.y + 10, m_root->geometry.height);
             target_space.y = m_root->geometry.y() + 1;
         }
-        cx::println("Target position to look for ({}, {})", target_space.x, target_space.y);
         auto target_client =
             in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
         if(target_client) {
-            cx::println("Found client to move to.");
             move_client(focused_container, *target_client);
         } else {
             DBGLOG("Could not find a suitable window to swap with{}", ".");

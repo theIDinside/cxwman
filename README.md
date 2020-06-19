@@ -7,12 +7,13 @@
    - [x] Rotate window left/right
    - [x] Rotate layout in client tile-pair
    - [x] Move window left/right
-   - [ ] Move window up/down
+   - [x] Move window up/down
    - [x] Teleport window to (implementation done, user functionality not yet done)
    - [ ] Kill client & application
    - [ ] Custom configuration
    - [ ] Resize window
-   - [ ] Implement EWMH stuff, to add client names as tags to our internal representation of windows
+   - [ ] Implement EWMH stuff
+        - [x] add client names as tags to our internal representation of windows
    - [ ] Font stuff
    - [ ] Basic graphics stuff, for example
         - [ ] Drawing a background

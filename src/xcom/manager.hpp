@@ -103,10 +103,7 @@ namespace cx
         struct EventHandler {
             EventHandler() = default;
             void handle(const config::KeyConfiguration& kc, Receiver* receiver) {
-                auto it = std::find_if(key_map.cbegin(), key_map.cend(), [&](auto item) {
-                  return item.first == kc;
-                });
-                if(it != key_map.end()) {
+                if(key_map.count(kc) >= 1) {
                     (receiver->*key_map[kc])();
                 } else {
                     Manager::noop();

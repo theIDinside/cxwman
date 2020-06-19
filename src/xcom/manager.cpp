@@ -168,7 +168,6 @@ namespace cx
         auto window_container = focused_ws->find_window(event->window);
 
         if(window_container) {
-            cx::println("Found window to unmap. Not yet implemented!");
             // unframe_window(*window);
             auto window = *window_container.value()->client;
             focused_ws->unregister_window(*window_container);
@@ -184,7 +183,7 @@ namespace cx
         uint32_t values[7], mask = 0, i = 0;
         if(client_to_frame_mapping.count(e->parent) == 1) {
             xcb_window_t frame = client_to_frame_mapping[e->window];
-            cx::println("Handle cfg for frame {} of client {}", frame, e->window);
+            DBGLOG("Handle cfg for frame {} of client {}", frame, e->window);
             if(e->value_mask & XCB_CONFIG_WINDOW_X) {
                 mask |= XCB_CONFIG_WINDOW_X;
                 values[i++] = e->x;
