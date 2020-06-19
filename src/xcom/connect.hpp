@@ -2,6 +2,7 @@
 // System headers
 #include <map>
 #include <set>
+#include <filesystem>
 
 #include <memory>
 #include <string_view>
@@ -11,6 +12,7 @@
 
 // Library/Application headers
 #include <datastructure/geometry.hpp>
+#include <xcb/xcb_keysyms.h>
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
 #include <xcom/utility/config.hpp>
@@ -20,22 +22,27 @@ namespace cx
 {
 
     namespace ws = cx::workspace;
+    namespace fs = std::filesystem;
     using XCBConn = xcb_connection_t;
     using XCBScreen = xcb_screen_t;
     using XCBDrawable = xcb_drawable_t;
     using XCBWindow = xcb_window_t;
 
     struct XInternals {
-        XInternals(XCBConn* c, XCBScreen* scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh)
-            : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh)
+        XInternals(XCBConn* c, XCBScreen* scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh, xcb_key_symbols_t* symbols)
+            : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh), keysyms(symbols)
         {
+
         }
-        ~XInternals() = default;
+        ~XInternals() {
+            free(keysyms);
+        }
         XCBConn* c;
         XCBScreen* screen;
         XCBDrawable root_drawable;
         XCBWindow root_window;
         XCBWindow ewmh_window;
+        xcb_key_symbols_t* keysyms;
     };
 
     // Yanked from the define in i3, to be used for our root window as well
@@ -73,7 +80,7 @@ namespace cx
         void event_loop();
 
       private:
-        Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window) noexcept;
+        Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept;
 
         [[nodiscard]] inline auto get_conn() const -> XCBConn*;
         [[nodiscard]] inline auto get_root() const -> XCBWindow;
@@ -99,10 +106,11 @@ namespace cx
             }
         }
 
-        // EVENT MANAGING
+        // EVENT MANAGING / Handlers
         auto handle_map_request(xcb_map_request_event_t* event) -> void;
         auto handle_unmap_request(xcb_unmap_window_request_t* event) -> void;
         auto handle_config_request(xcb_configure_request_event_t* event) -> void;
+        auto handle_key_press(xcb_key_press_event_t* event) -> void;
 
         // We assume that most windows were not mapped/created before our WM started
         auto frame_window(XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false) -> void;
@@ -113,6 +121,9 @@ namespace cx
         // TODO(implement): Unmaps currently focused workspace, and maps workspace ws
         auto map_workspace(ws::Workspace& ws) -> void;
         auto add_workspace(const std::string& workspace_tag, std::size_t screen_number = 0) -> void;
+
+        auto load_keymap(const fs::path& file_path);
+
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.
         XInternals x_detail;
@@ -122,5 +133,7 @@ namespace cx
         std::map<std::size_t, std::function<auto()->void>> actions;
         ws::Workspace* focused_ws;
         std::vector<std::unique_ptr<ws::Workspace>> m_workspaces;
+        // TODO: Use/Not use a map of std::functions as keybindings?
+        cx::config::KeyMap m_key_bindings;
     };
 } // namespace cx

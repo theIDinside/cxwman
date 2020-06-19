@@ -9,6 +9,7 @@
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_ewmh.h>
 #include <xcb/xcb_keysyms.h>
+#include <xcb/xcb_util.h>
 
 #include <algorithm>
 #include <memory>
@@ -65,13 +66,12 @@ namespace cx
     {
         [[maybe_unused]] void print_modifiers(std::uint32_t mask)
         {
-            const char* MODIFIERS[] = {"Shift", "Lock",    "Ctrl",    "Alt",     "Mod2",    "Mod3",   "Mod4",
-                                       "Mod5",  "Button1", "Button2", "Button3", "Button4", "Button5"};
+            constexpr const char* MODIFIERS[] = {"Shift", "Lock",    "Ctrl",    "Alt",     "Mod2",    "Mod3",   "Mod4",
+                                                 "Mod5",  "Button1", "Button2", "Button3", "Button4", "Button5"};
 
-            fmt::print("Modifier mask: ");
-            for(const char** modifier = MODIFIERS; mask; mask >>= 1U, ++modifier) {
+            for(auto modifier = MODIFIERS; mask; mask >>= 1U, ++modifier) {
                 if(mask & 1U) {
-                    fmt::print(*modifier);
+                    fmt::print("Modifier mask: {} - Value: {}\t", *modifier, mask);
                 }
             }
             fmt::print("\n");
@@ -114,80 +114,35 @@ namespace cx
             mouse_button++;
         }
     }
+
+    template<std::size_t N>
+    constexpr auto get_key_mod_bindings()
+    {
+        namespace KM = xcb_key_masks;
+        return std::array<std::pair<int, int>, N>{std::make_pair(KM::SUPER_SHIFT, XK_F4),   std::make_pair(KM::SUPER_SHIFT, XK_R),
+                                                  std::make_pair(KM::SUPER_SHIFT, XK_Left), std::make_pair(KM::SUPER_SHIFT, XK_Right),
+                                                  std::make_pair(KM::SUPER_SHIFT, XK_Up),   std::make_pair(KM::SUPER_SHIFT, XK_Down)};
+    }
+
     void setup_key_press_listening(XCBConn* conn, XCBWindow root)
     {
         namespace KM = xcb_key_masks;
-        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
-            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_F4);
-            xcb_key_symbols_free(keysyms);
-            auto kc_count = 0;
-            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
-                kc_count++;
-            }
-            cx::println("Found {} keycodes for F4. First: {}", kc_count, f4_keycodes[0]);
-            auto i = 0;
-            while(i < kc_count) {
-                // Grab Super+Shift + F4
-                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-                ++i;
-            }
-        } else {
-            cx::println("Failed to allocate keysymbol table... perhaps?");
-        }
+        auto keysyms_data = xcb_key_symbols_alloc(conn);
+        constexpr auto bindings = get_key_mod_bindings<6>();
 
-        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
-            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_R);
-            xcb_key_symbols_free(keysyms);
-            auto kc_count = 0;
-            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
-                kc_count++;
+        std::for_each(std::begin(bindings), std::end(bindings), [&](auto& binding) {
+            auto& [modifier, keysym] = binding;
+            auto key_codes = xcb_key_symbols_get_keycode(keysyms_data, keysym);
+            if(key_codes) {
+                auto pos = 0;
+                while(key_codes[pos] != XCB_NO_SYMBOL) {
+                    xcb_grab_key(conn, 1, root, modifier, key_codes[pos], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
+                    pos++;
+                }
             }
-            cx::println("Found {} keycodes for R. First: {}", kc_count, f4_keycodes[0]);
-            auto i = 0;
-            while(i < kc_count) {
-                // Grab Super+Shift + F4
-                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-                ++i;
-            }
-        } else {
-            cx::println("Failed to allocate keysymbol table... perhaps?");
-        }
-
-        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
-            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_Left);
-            xcb_key_symbols_free(keysyms);
-            auto kc_count = 0;
-            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
-                kc_count++;
-            }
-            cx::println("Found {} keycodes for Left. First: {}", kc_count, f4_keycodes[0]);
-            auto i = 0;
-            while(i < kc_count) {
-                // Grab Super+Shift + F4
-                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-                ++i;
-            }
-        } else {
-            cx::println("Failed to allocate keysymbol table... perhaps?");
-        }
-
-        if(auto keysyms = xcb_key_symbols_alloc(conn); keysyms) {
-            auto f4_keycodes = xcb_key_symbols_get_keycode(keysyms, XK_Right);
-            xcb_key_symbols_free(keysyms);
-            auto kc_count = 0;
-            while(f4_keycodes[kc_count] != XCB_NO_SYMBOL) {
-                kc_count++;
-            }
-            cx::println("Found {} keycodes for Right. First: {}", kc_count, f4_keycodes[0]);
-            auto i = 0;
-            while(i < kc_count) {
-                // Grab Super+Shift + F4
-                xcb_grab_key(conn, 1, root, KM::SUPER_SHIFT, f4_keycodes[i], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-                ++i;
-            }
-        } else {
-            cx::println("Failed to allocate keysymbol table... perhaps?");
-        }
+            free(key_codes);
+        });
+        free(keysyms_data);
     }
     // TODO(implement): Get all 35 atoms that i3 support, and filter out the ones we probably won't need
     template<typename StrView, std::size_t N>
@@ -331,14 +286,15 @@ namespace cx
                 err_found = true;
             }
         }
-
-        return std::unique_ptr<Manager>(new Manager{c, screen, root_drawable, window, ewmh_window});
+        auto symbols = xcb_key_symbols_alloc(c);
+        return std::unique_ptr<Manager>(new Manager{c, screen, root_drawable, window, ewmh_window, symbols});
     }
 
     // Private constructor called via public interface function Manager::initialize()
-    Manager::Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window) noexcept
-        : x_detail{connection, screen, root_drawable, root_window, ewmh_window},
-          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}
+    Manager::Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window,
+                     xcb_key_symbols_t* symbols) noexcept
+        : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
+          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}, m_key_bindings{}
     {
         // TODO: Set up key-combo-configurations with bindings like this? Or unnecessarily complex?
         actions[27] = [this]() {
@@ -447,6 +403,26 @@ namespace cx
         }
     }
 
+    auto Manager::handle_key_press(xcb_key_press_event_t* event) -> void
+    {
+        namespace xkm = xcb_key_masks;
+        auto ksym = xcb_key_press_lookup_keysym(x_detail.keysyms, event, 0);
+        // debug::print_modifiers(event->state);
+        fmt::print("Key code {} - KeySym: {}?\n", event->detail, ksym);
+        if(ksym == XK_F4 && event->state == xkm::SUPER_SHIFT) {
+            focused_ws->rotate_focus_layout();
+            focused_ws->display_update(get_conn());
+        } else if(ksym == XK_r && event->state == xkm::SUPER_SHIFT) {
+            // This is really odd. When state is SUPER+SHIFT + key, it doesn't register as XK_R but XK_r
+            actions[event->detail]();
+        } else if(ksym == XK_Left) {
+            focused_ws->move_focused_left();
+            focused_ws->display_update(get_conn());
+        } else if(ksym == XK_Right) {
+            focused_ws->move_focused_right();
+            focused_ws->display_update(get_conn());
+        }
+    }
     // Fixme: Make sure client specific functionality isn't lost after re-parenting (such as client menu's should continue working)
     // Fixme: Does not showing client popup/dropdown menus have to do with not mapping their windows? (test basic_wm and see)
     auto Manager::frame_window(XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
@@ -594,21 +570,7 @@ namespace cx
                 case XCB_BUTTON_RELEASE:
                     break;
                 case XCB_KEY_PRESS: {
-                    auto e = (xcb_key_press_event_t*)evt;
-                    // debug::print_modifiers(e->state);
-                    fmt::print("Key pressed: {}\n", e->detail);
-                    if(e->detail == 70) { // Beautiful hack and slash. Winkey + Shift + F4
-                        focused_ws->rotate_focus_layout();
-                        focused_ws->display_update(get_conn());
-                    } else if(e->detail == 27) { // Beautiful hack and slash. Winkey + Shift + R
-                        actions[e->detail]();
-                    } else if(e->detail == 113) { // Left key
-                        focused_ws->move_focused_left();
-                        focused_ws->display_update(get_conn());
-                    } else if(e->detail == 114) { // Right key
-                        focused_ws->move_focused_right();
-                        focused_ws->display_update(get_conn());
-                    }
+                    handle_key_press((xcb_key_press_event_t*)evt);
                     break;
                 }
                 case XCB_KEY_RELEASE:
@@ -626,4 +588,5 @@ namespace cx
     {
         m_workspaces.emplace_back(std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, 0, 800, 600}));
     }
+
 } // namespace cx

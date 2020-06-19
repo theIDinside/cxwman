@@ -12,7 +12,7 @@ namespace cx
 
     using uint = unsigned int;
     using u16 = unsigned short;
-    using u32 = uint32_t;
+    using u32 = std::uint32_t;
     using usize = unsigned long;
     using isize = signed long;
     using f32 = float;

@@ -19,7 +19,6 @@ namespace cx
     {
         constexpr auto SUPER = XCB_MOD_MASK_4;
         constexpr auto SHIFT = XCB_MOD_MASK_SHIFT;
-
         constexpr auto SUPER_SHIFT = SUPER | SHIFT;
     }; // namespace xcb_key_masks
 };     // namespace cx
