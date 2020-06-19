@@ -25,6 +25,12 @@ namespace cx
         fmt::print(std::forward<fmt_str_t>(format_str), std::forward<Args>(args)...);
         fmt::print("\n");
     }
+
+    template<typename... Args>
+    constexpr auto make_array(Args&&... args)
+    {
+        return std::array<std::decay_t<std::common_type_t<Args...>>, sizeof...(Args)>{args...};
+    }
 } // namespace cx
 
 #define LOG(message, ...) cx::println(message, __VA_ARGS__)

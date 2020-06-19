@@ -115,20 +115,19 @@ namespace cx
         }
     }
 
-    template<std::size_t N>
     constexpr auto get_key_mod_bindings()
     {
         namespace KM = xcb_key_masks;
-        return std::array<std::pair<int, int>, N>{std::make_pair(KM::SUPER_SHIFT, XK_F4),   std::make_pair(KM::SUPER_SHIFT, XK_R),
-                                                  std::make_pair(KM::SUPER_SHIFT, XK_Left), std::make_pair(KM::SUPER_SHIFT, XK_Right),
-                                                  std::make_pair(KM::SUPER_SHIFT, XK_Up),   std::make_pair(KM::SUPER_SHIFT, XK_Down)};
+        return make_array(std::make_pair(KM::SUPER_SHIFT, XK_F4), std::make_pair(KM::SUPER_SHIFT, XK_R), std::make_pair(KM::SUPER_SHIFT, XK_Left),
+                          std::make_pair(KM::SUPER_SHIFT, XK_Right), std::make_pair(KM::SUPER_SHIFT, XK_Up),
+                          std::make_pair(KM::SUPER_SHIFT, XK_Down));
     }
 
     void setup_key_press_listening(XCBConn* conn, XCBWindow root)
     {
         namespace KM = xcb_key_masks;
         auto keysyms_data = xcb_key_symbols_alloc(conn);
-        constexpr auto bindings = get_key_mod_bindings<6>();
+        constexpr auto bindings = get_key_mod_bindings();
 
         std::for_each(std::begin(bindings), std::end(bindings), [&](auto& binding) {
             auto& [modifier, keysym] = binding;
