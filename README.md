@@ -2,7 +2,7 @@
 
 
 
-## Todo's
+## Todo's (features and questions)
 1. Setup specific key & key combos for window manager actions such as:
    - [x] Rotate window left/right
    - [x] Rotate layout in client tile-pair
@@ -14,6 +14,11 @@
    - [ ] Resize window
    - [ ] Implement EWMH stuff, to add client names as tags to our internal representation of windows
    - [ ] Font stuff
-   - [ ] Basic graphics stuff
-  
-2. Grab WM Hints and WM atoms etc. Can we get client names, so we can use them as identifiers? 
+   - [ ] Basic graphics stuff, for example
+        - [ ] Drawing a background
+        - [ ] How does pixmaps work?
+
+ 
+## Todo's implementation details
+
+   - [x] Grab WM Hints and WM atoms etc. Can we get client names, so we can use them as identifiers? 
