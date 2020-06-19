@@ -44,7 +44,7 @@ namespace cx::workspace
         Layout policy;
         float split_ratio;
         geom::Geometry geometry;
-        std::size_t height;
+        std::size_t m_tree_height;
 
         [[nodiscard]] bool is_root() const;
         [[nodiscard]] bool is_split_container() const; // basically "is_branch?"
@@ -56,6 +56,8 @@ namespace cx::workspace
 
         void rotate_container_layout();
         void rotate_children();
+
+        geom::Position center_of_top();
 
         template<typename Predicate>
         friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>;

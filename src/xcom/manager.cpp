@@ -1,20 +1,17 @@
+// Library / Application headers
 #include <coreutils/core.hpp>
-#include <xcom/connect.hpp>
+#include <xcom/manager.hpp>
 
-#include <cassert>
-
-#include <X11/keysym.h>
-#include <X11/keysymdef.h>
-
+// System headers xcb
 #include <xcb/xcb_atom.h>
 #include <xcb/xcb_ewmh.h>
 #include <xcb/xcb_keysyms.h>
 #include <xcb/xcb_util.h>
-
+// STD System headers
 #include <algorithm>
+#include <cassert>
 #include <memory>
 
-#define CXGRABMODE XCB_GRAB_MODE_ASYNC
 namespace cx
 {
     template<typename StrT>
@@ -25,158 +22,6 @@ namespace cx
 
 #define x_replace_str_prop(c, window, atom, string)                                                                                                  \
     xcb_change_property_checked(c, XCB_PROP_MODE_REPLACE, window, atom, XCB_ATOM_STRING, 8, name_len(string), string)
-
-    static constexpr std::string_view atom_names[]{"_NET_SUPPORTED",
-                                                   "_NET_SUPPORTING_WM_CHECK",
-                                                   "_NET_WM_NAME",
-                                                   "_NET_WM_VISIBLE_NAME",
-                                                   "_NET_WM_MOVERESIZE",
-                                                   "_NET_WM_STATE_STICKY",
-                                                   "_NET_WM_STATE_FULLSCREEN",
-                                                   "_NET_WM_STATE_DEMANDS_ATTENTION",
-                                                   "_NET_WM_STATE_MODAL",
-                                                   "_NET_WM_STATE_HIDDEN",
-                                                   "_NET_WM_STATE_FOCUSED",
-                                                   "_NET_WM_STATE",
-                                                   "_NET_WM_WINDOW_TYPE",
-                                                   "_NET_WM_WINDOW_TYPE_NORMAL",
-                                                   "_NET_WM_WINDOW_TYPE_DOCK",
-                                                   "_NET_WM_WINDOW_TYPE_DIALOG",
-                                                   "_NET_WM_WINDOW_TYPE_UTILITY",
-                                                   "_NET_WM_WINDOW_TYPE_TOOLBAR",
-                                                   "_NET_WM_WINDOW_TYPE_SPLASH",
-                                                   "_NET_WM_WINDOW_TYPE_MENU",
-                                                   "_NET_WM_WINDOW_TYPE_DROPDOWN_MENU",
-                                                   "_NET_WM_WINDOW_TYPE_POPUP_MENU",
-                                                   "_NET_WM_WINDOW_TYPE_TOOLTIP",
-                                                   "_NET_WM_WINDOW_TYPE_NOTIFICATION",
-                                                   "_NET_WM_DESKTOP",
-                                                   "_NET_WM_STRUT_PARTIAL",
-                                                   "_NET_CLIENT_LIST",
-                                                   "_NET_CLIENT_LIST_STACKING",
-                                                   "_NET_CURRENT_DESKTOP",
-                                                   "_NET_NUMBER_OF_DESKTOPS",
-                                                   "_NET_DESKTOP_NAMES",
-                                                   "_NET_DESKTOP_VIEWPORT",
-                                                   "_NET_ACTIVE_WINDOW",
-                                                   "_NET_CLOSE_WINDOW",
-                                                   "_NET_MOVERESIZE_WINDOW"};
-
-    namespace debug
-    {
-        [[maybe_unused]] void print_modifiers(std::uint32_t mask)
-        {
-            constexpr const char* MODIFIERS[] = {"Shift", "Lock",    "Ctrl",    "Alt",     "Mod2",    "Mod3",   "Mod4",
-                                                 "Mod5",  "Button1", "Button2", "Button3", "Button4", "Button5"};
-
-            for(auto modifier = MODIFIERS; mask; mask >>= 1U, ++modifier) {
-                if(mask & 1U) {
-                    fmt::print("Modifier mask: {} - Value: {}\t", *modifier, mask);
-                }
-            }
-            fmt::print("\n");
-        }
-    } // namespace debug
-
-    void setup_redirection_of_map_requests(XCBConn* conn, XCBWindow window)
-    {
-
-        auto value_to_set = XCB_CW_EVENT_MASK;
-        cx::u32 values[2];
-        values[0] = XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY;
-        // values[0] = ROOT_EVENT_MASK;
-        auto attr_req_cookie = xcb_change_window_attributes_checked(conn, window, value_to_set, values);
-        if(auto err = xcb_request_check(conn, attr_req_cookie); err) {
-            cx::println("Could not set Substructure Redirect for our root window. This window manager will not function");
-            std::abort();
-        }
-
-        auto root_geometry = xcb_get_geometry(conn, window);
-        auto g_reply = xcb_get_geometry_reply(conn, root_geometry, nullptr);
-        if(!g_reply) {
-            cx::println("Failed to get geometry of root window. Exiting");
-            std::abort();
-        }
-        DBGLOG("Root geometry: Width x Height = {} x {}", g_reply->width, g_reply->height);
-    }
-    void setup_mouse_button_request_handling(XCBConn* conn, XCBWindow window)
-    {
-        auto mouse_button = 1; // left mouse button, 2 middle, 3 right, MouseModMask is alt + mouse click
-
-        auto PRESS_AND_RELEASE_MASK = (cx::u32)XCB_EVENT_MASK_BUTTON_PRESS | (cx::u32)XCB_EVENT_MASK_BUTTON_RELEASE |
-                                      (cx::u32)XCB_EVENT_MASK_ENTER_WINDOW | (cx::u32)XCB_EVENT_MASK_LEAVE_WINDOW;
-        while(mouse_button < 4) {
-            auto ck = xcb_grab_button_checked(conn, 0, window, PRESS_AND_RELEASE_MASK, CXGRABMODE, CXGRABMODE, window, XCB_NONE, mouse_button,
-                                              XCB_MOD_MASK_ANY);
-            if(auto err = xcb_request_check(conn, ck); err) {
-                cx::println("Could not set up handling of mouse button clicks for button {}", mouse_button);
-            }
-            mouse_button++;
-        }
-    }
-
-    constexpr auto get_key_mod_bindings()
-    {
-        namespace KM = xcb_key_masks;
-        return make_array(std::make_pair(KM::SUPER_SHIFT, XK_F4), std::make_pair(KM::SUPER_SHIFT, XK_R), std::make_pair(KM::SUPER_SHIFT, XK_Left),
-                          std::make_pair(KM::SUPER_SHIFT, XK_Right), std::make_pair(KM::SUPER_SHIFT, XK_Up),
-                          std::make_pair(KM::SUPER_SHIFT, XK_Down));
-    }
-
-    void setup_key_press_listening(XCBConn* conn, XCBWindow root)
-    {
-        namespace KM = xcb_key_masks;
-        auto keysyms_data = xcb_key_symbols_alloc(conn);
-        constexpr auto bindings = get_key_mod_bindings();
-
-        std::for_each(std::begin(bindings), std::end(bindings), [&](auto& binding) {
-            auto& [modifier, keysym] = binding;
-            auto key_codes = xcb_key_symbols_get_keycode(keysyms_data, keysym);
-            if(key_codes) {
-                auto pos = 0;
-                while(key_codes[pos] != XCB_NO_SYMBOL) {
-                    xcb_grab_key(conn, 1, root, modifier, key_codes[pos], XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC);
-                    pos++;
-                }
-            }
-            free(key_codes);
-        });
-        free(keysyms_data);
-    }
-    // TODO(implement): Get all 35 atoms that i3 support, and filter out the ones we probably won't need
-    template<typename StrView, std::size_t N>
-    auto get_supported_atoms(XCBConn* c, const StrView (&names)[N]) -> std::array<xcb_atom_t, N>
-    {
-        std::array<xcb_atom_t, N> atoms{};
-        std::transform(std::begin(names), std::begin(names) + N, std::begin(atoms), [c](auto str) {
-            auto cookie = xcb_intern_atom(c, 0, str.size(), str.data());
-            return xcb_intern_atom_reply(c, cookie, nullptr)->atom;
-        });
-        return atoms;
-    }
-    auto get_wm_name(XCBConn* c, xcb_window_t window) -> std::optional<std::string>
-    {
-        auto prop_cookie = xcb_get_property(c, 0, window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 0, 45);
-        if(auto prop_reply = xcb_get_property_reply(c, prop_cookie, nullptr); prop_reply) {
-            auto str_length = xcb_get_property_value_length(prop_reply);
-            if(str_length == 0) {
-                DBGLOG("Failed to get WM_NAME due to length being == {}", str_length);
-                free(prop_reply);
-                return {};
-            } else {
-                auto start = (const char*)xcb_get_property_value(prop_reply);
-                std::string_view s{start, (std::size_t)str_length};
-                DBGLOG("WM_NAME Length: {} Data: [{}]", str_length, s);
-                auto result = std::string{s};
-                free(prop_reply);
-                return result;
-            }
-        } else {
-            DBGLOG("Failed to request WM_NAME for window {}", window);
-            free(prop_reply);
-            return {};
-        }
-    }
 
     void Manager::setup()
     {
@@ -199,8 +44,8 @@ namespace cx
     std::unique_ptr<Manager> Manager::initialize()
     {
         int screen_number;
-        XCBScreen* screen = nullptr;
-        XCBDrawable root_drawable;
+        xinit::XCBScreen* screen = nullptr;
+        xinit::XCBDrawable root_drawable;
         auto c = xcb_connect(nullptr, &screen_number);
         if(xcb_connection_has_error(c)) {
             throw std::runtime_error{"XCB Error: failed trying to connect to X-server"};
@@ -220,18 +65,18 @@ namespace cx
         }
 
         root_drawable = screen->root;
-        XCBWindow window = screen->root;
+        xinit::XCBWindow window = screen->root;
 
         // Set this in pre-processor variable in CMake, to run this code
         DBGLOG("Screen size {} x {} pixels. Root window: {}", screen->width_in_pixels, screen->height_in_pixels, root_drawable);
-        setup_mouse_button_request_handling(c, window);
-        setup_redirection_of_map_requests(c, window);
-        setup_key_press_listening(c, window);
+        xinit::setup_mouse_button_request_handling(c, window);
+        xinit::setup_redirection_of_map_requests(c, window);
+        xinit::setup_key_press_listening(c, window);
         // TODO: grab keys & set up keysymbols and configs
         auto ewmh_window = xcb_generate_id(c);
         xcb_create_window(c, XCB_COPY_FROM_PARENT, ewmh_window, window, -1, -1, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY, XCB_COPY_FROM_PARENT,
                           XCB_CW_OVERRIDE_REDIRECT, (uint32_t[]){1});
-        auto atoms = get_supported_atoms(c, atom_names);
+        auto atoms = cx::xinit::get_supported_atoms(c, xinit::atom_names);
 
         auto support_check_cookie = xcb_intern_atom(c, 0, name_len("_NET_SUPPORTING_WM_CHECK"), "_NET_SUPPORTING_WM_CHECK");
         auto wm_name_cookie = xcb_intern_atom(c, 0, name_len("_NET_WM_NAME"), "_NET_WM_NAME");
@@ -290,10 +135,10 @@ namespace cx
     }
 
     // Private constructor called via public interface function Manager::initialize()
-    Manager::Manager(XCBConn* connection, XCBScreen* screen, XCBDrawable root_drawable, XCBWindow root_window, XCBWindow ewmh_window,
-                     xcb_key_symbols_t* symbols) noexcept
+    Manager::Manager(xinit::XCBConn* connection, xinit::XCBScreen* screen, xinit::XCBDrawable root_drawable, xinit::XCBWindow root_window,
+                     xinit::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
         : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
-          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}, m_key_bindings{}
+          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}, event_dispatcher{}
     {
         // TODO: Set up key-combo-configurations with bindings like this? Or unnecessarily complex?
         actions[27] = [this]() {
@@ -302,11 +147,11 @@ namespace cx
         };
     }
 
-    [[nodiscard]] inline auto Manager::get_conn() const -> XCBConn* { return x_detail.c; }
+    [[nodiscard]] inline auto Manager::get_conn() const -> xinit::XCBConn* { return x_detail.c; }
 
-    [[nodiscard]] inline auto Manager::get_root() const -> XCBWindow { return x_detail.screen->root; }
+    [[nodiscard]] inline auto Manager::get_root() const -> xinit::XCBWindow { return x_detail.screen->root; }
 
-    [[nodiscard]] inline auto Manager::get_screen() const -> XCBScreen* { return x_detail.screen; }
+    [[nodiscard]] inline auto Manager::get_screen() const -> xinit::XCBScreen* { return x_detail.screen; }
 
     // TODO(EWMHints): Grab EWM hints & set up supported hints
     auto Manager::handle_map_request(xcb_map_request_event_t* evt) -> void
@@ -407,24 +252,15 @@ namespace cx
         namespace xkm = xcb_key_masks;
         auto ksym = xcb_key_press_lookup_keysym(x_detail.keysyms, event, 0);
         // debug::print_modifiers(event->state);
-        fmt::print("Key code {} - KeySym: {}?\n", event->detail, ksym);
-        if(ksym == XK_F4 && event->state == xkm::SUPER_SHIFT) {
-            focused_ws->rotate_focus_layout();
-            focused_ws->display_update(get_conn());
-        } else if(ksym == XK_r && event->state == xkm::SUPER_SHIFT) {
-            // This is really odd. When state is SUPER+SHIFT + key, it doesn't register as XK_R but XK_r
-            actions[event->detail]();
-        } else if(ksym == XK_Left) {
-            focused_ws->move_focused_left();
-            focused_ws->display_update(get_conn());
-        } else if(ksym == XK_Right) {
-            focused_ws->move_focused_right();
-            focused_ws->display_update(get_conn());
-        }
+        DBGLOG("Key code {} - KeySym: {}", event->detail, ksym);
+        auto cfg = config::KeyConfiguration{ksym, event->state};
+        // TODO: Is this the right way to deal with something like this? Too complex? I have no idea.
+        // "Safe" event handler. Calls Manager::noop() if key-combo is not registered with a specific member function of Manager
+        event_dispatcher.handle(cfg, this);
     }
     // Fixme: Make sure client specific functionality isn't lost after re-parenting (such as client menu's should continue working)
     // Fixme: Does not showing client popup/dropdown menus have to do with not mapping their windows? (test basic_wm and see)
-    auto Manager::frame_window(XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
+    auto Manager::frame_window(xinit::XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
     {
         std::array<xcb_void_cookie_t, 4> cookies{};
         constexpr auto border_width = 3;
@@ -468,7 +304,7 @@ namespace cx
         auto y = static_cast<geom::GU>(client_geometry->y);
         auto w = static_cast<geom::GU>(client_geometry->width);
         auto h = static_cast<geom::GU>(client_geometry->height);
-        auto tag = get_wm_name(get_conn(), window);
+        auto tag = xinit::get_client_wm_name(get_conn(), window);
         ws::Window win{geom::Geometry{x, y, w, h}, window, frame_id, ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
         cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
         cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
@@ -512,8 +348,8 @@ namespace cx
         const auto& [x, y, width, height] = window.geometry.xcb_value_list();
         auto frame_properties = xcm::TELEPORT;
         auto child_properties = xcm::RESIZE;
-        // cx::uint frame_values[] = {x, y, width, height};
-        cx::uint child_values[] = {width, height};
+        // cx::uint frame_values[] = {x, y, width, m_tree_height};
+        cx::uint child_values[] = {(cx::uint)width, (cx::uint)height};
         auto cookies = CONFIG_CX_WINDOW(window, frame_properties, window.geometry.xcb_value_list().data(), child_properties, child_values);
         for(const auto& cookie : cookies) {
             if(auto err = xcb_request_check(get_conn(), cookie); err) {
@@ -526,6 +362,7 @@ namespace cx
     auto Manager::event_loop() -> void
     {
         setup();
+        setup_input_functions();
         this->m_running = true;
         while(m_running) {
             auto evt = xcb_wait_for_event(get_conn());
@@ -543,26 +380,12 @@ namespace cx
                 case XCB_UNMAP_NOTIFY:
                     handle_unmap_request((xcb_unmap_window_request_t*)evt);
                     break;
-                case XCB_MAPPING_NOTIFY: // alerts us if a *key mapping* has been done, NOT a window one
-                    break;
-                case XCB_MOTION_NOTIFY: {
-                    auto e = (xcb_motion_notify_event_t*)evt;
-                    cx::println("Motion notify event");
-                    break;
-                }
-                case XCB_CONFIGURE_NOTIFY: {
-                    break;
-                }
                 case XCB_CONFIGURE_REQUEST: {
                     handle_config_request((xcb_configure_request_event_t*)evt);
                     break;
                 }
-                case XCB_CLIENT_MESSAGE:
-                    break;
                 case XCB_BUTTON_PRESS: {
                     auto e = (xcb_button_press_event_t*)evt;
-                    // TODO: implement focusing of client via clicking or some key-combination
-                    // TODO: this will look through all clients in focused_ws, and focus the workspace's focus pointer on that client
                     focused_ws->focus_client(e->child);
                     break;
                 }
@@ -572,13 +395,13 @@ namespace cx
                     handle_key_press((xcb_key_press_event_t*)evt);
                     break;
                 }
-                case XCB_KEY_RELEASE:
-                    break;
-                case XCB_EXPOSE: {
-                    auto e = (xcb_expose_event_t*)evt;
-                    cx::println("Expose event for {} caught", e->window);
-                    break;
-                }
+                case XCB_MAPPING_NOTIFY:   // alerts us if a *key mapping* has been done, NOT a window one
+                case XCB_MOTION_NOTIFY:    // We just fall through all these for now, since we don't do anything right now anyway
+                case XCB_CLIENT_MESSAGE:   // TODO(implement) XCB_CLIENT_MESSAGE:
+                case XCB_CONFIGURE_NOTIFY: // TODO(implement) XCB_CONFIGURE_NOTIFY
+                case XCB_KEY_RELEASE:      // TODO(implement)? XCB_KEY_RELEASE
+                case XCB_EXPOSE:
+                    break; // TODO(implement) XCB_EXPOSE
                 }
             }
         }
@@ -587,5 +410,50 @@ namespace cx
     {
         m_workspaces.emplace_back(std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, 0, 800, 600}));
     }
+    void Manager::setup_input_functions()
+    {
+        namespace xkm = xcb_key_masks;
+        using KC = cx::config::KeyConfiguration;
 
+        event_dispatcher.register_action(KC{XK_F4, xkm::SUPER_SHIFT}, &Manager::rotate_focused_layout);
+        event_dispatcher.register_action(KC{XK_r, xkm::SUPER_SHIFT}, &Manager::rotate_focused_pair);
+        event_dispatcher.register_action(KC{XK_Left, xkm::SUPER_SHIFT}, &Manager::move_focused_left);
+        event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::move_focused_right);
+        event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::move_focused_up);
+        event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::move_focused_down);
+    }
+
+    // Manager window/client actions
+
+    void Manager::rotate_focused_layout()
+    {
+        focused_ws->rotate_focus_layout();
+        focused_ws->display_update(get_conn());
+    }
+
+    void Manager::rotate_focused_pair()
+    {
+        focused_ws->rotate_focus_pair();
+        focused_ws->display_update(get_conn());
+    }
+    void Manager::noop() { cx::println("Key combination not yet handled"); }
+    void Manager::move_focused_left()
+    {
+        focused_ws->move_focused_left();
+        focused_ws->display_update(get_conn());
+    }
+    void Manager::move_focused_right()
+    {
+        focused_ws->move_focused_right();
+        focused_ws->display_update(get_conn());
+    }
+
+    void Manager::move_focused_up() {
+        focused_ws->move_focused_up();
+        focused_ws->display_update(get_conn());
+    }
+    void Manager::move_focused_down() {
+        focused_ws->move_focused_down();
+        focused_ws->display_update(get_conn());
+    }
 } // namespace cx

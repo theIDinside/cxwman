@@ -2,6 +2,11 @@
 
 namespace cx::geom
 {
+
+    Position operator+(const Position& lhs, const Position& rhs) {
+        return Position{lhs.x + rhs.x, lhs.y + rhs.y};
+    }
+
     std::pair<Geometry, Geometry> v_split(const Geometry& g, float split_ratio)
     {
         auto sp = std::clamp(split_ratio, 0.1f, 1.0f);
@@ -34,6 +39,14 @@ namespace cx::geom
         auto x_collision = ((a.x() + a.width >= b.x()) && (b.x() + b.width >= a.x()));
         auto y_collision = ((a.y() + a.height >= b.y()) && (b.y() + b.height >= a.y()));
         return x_collision && y_collision;
+    }
+
+    Geometry operator+(const Geometry& lhs, const Position& rhs) {
+        return Geometry{lhs.pos.x + rhs.x, lhs.pos.y + rhs.y, lhs.width, lhs.height};
+    }
+
+    Geometry operator*(const Geometry& lhs, int rhs) {
+        return Geometry{lhs.pos, lhs.width * rhs, lhs.height * rhs};
     }
 
 } // namespace cx::geom

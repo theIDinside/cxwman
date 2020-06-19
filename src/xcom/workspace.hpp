@@ -28,7 +28,7 @@ namespace cx::workspace
         std::optional<Window> existing_window;
         std::optional<Window> new_window;
     };
-
+    using Pos = geom::Position;
     struct Workspace {
         using TreeOwned = ContainerTree::TreeOwned;
         // Constructors & initializers
@@ -70,6 +70,9 @@ namespace cx::workspace
         /// or right in it's leaf position in the tree
         void move_focused_right();
         void move_focused_left();
+        void move_focused_up();
+        void move_focused_down();
+
 
         void focus_client(xcb_window_t xwin);
 

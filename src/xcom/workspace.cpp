@@ -92,8 +92,8 @@ namespace cx::workspace
             const auto& [x, y, width, height] = window.geometry.xcb_value_list();
             auto frame_properties = xcm::TELEPORT;
             auto child_properties = xcm::RESIZE;
-            cx::uint frame_values[] = {x, y, width, height};
-            cx::uint child_values[] = {width, height};
+            cx::uint frame_values[] = {(cx::uint)x, (cx::uint)y, (cx::uint)width, (cx::uint)height};
+            cx::uint child_values[] = {(cx::uint)width, (cx::uint)height};
             auto cookies = std::array<xcb_void_cookie_t, 2>{xcb_configure_window_checked(c, window.frame_id, frame_properties, frame_values),
                                                             xcb_configure_window_checked(c, window.client_id, child_properties, child_values)};
             for(const auto& cookie : cookies) {
@@ -109,7 +109,7 @@ namespace cx::workspace
     void Workspace::rotate_focus_layout() { focused_container->rotate_container_layout(); }
 
     void Workspace::rotate_focus_pair() { focused_container->rotate_children(); }
-
+    // TODO: reimplement as up and down versions to get more accurate results. Right now it might or might not actually move window left/right
     void Workspace::move_focused_right()
     {
         auto cs = get_clients(cx::workspace::is_window_predicate);
@@ -131,6 +131,7 @@ namespace cx::workspace
             }
         }
     }
+    // TODO: reimplement as up and down versions to get more accurate results. Right now it might or might not actually move window left/right
     void Workspace::move_focused_left()
     {
         auto cs = get_clients(cx::workspace::is_window_predicate);
@@ -153,6 +154,43 @@ namespace cx::workspace
         }
     }
 
+    void Workspace::move_focused_up()
+    {
+        auto target_space = focused_container->center_of_top();
+        target_space.y -= 10; // this is now the position we search for, what client this lands within
+        if(target_space.y < m_root->geometry.y()) { // just like move_focused_down, wrap around, and start looking from the bottom instead
+            target_space.y = m_root->geometry.height - 10;
+        }
+        cx::println("Target position to look for ({}, {})", target_space.x, target_space.y);
+        auto target_client =
+            in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+        if(target_client) {
+            cx::println("Found client to move to.");
+            move_client(focused_container, *target_client);
+        } else {
+            DBGLOG("Could not find a suitable window to swap with{}", ".");
+        }
+    }
+    void Workspace::move_focused_down()
+    {
+        auto target_space =
+            focused_container->center_of_top() + Pos{focused_container->geometry.width / 2, focused_container->geometry.height + 10};
+        // target_space.x += focused_container->geometry.width / 2;
+        // target_space.y += focused_container->geometry.height + 10;
+        if(target_space.y > m_root->geometry.height) { // wrap around, and look from top of screen space instead
+            cx::println("Target y is greater than root space {} > {}. Wrapping", target_space.y + 10, m_root->geometry.height);
+            target_space.y = m_root->geometry.y() + 1;
+        }
+        cx::println("Target position to look for ({}, {})", target_space.x, target_space.y);
+        auto target_client =
+            in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+        if(target_client) {
+            cx::println("Found client to move to.");
+            move_client(focused_container, *target_client);
+        } else {
+            DBGLOG("Could not find a suitable window to swap with{}", ".");
+        }
+    }
     void Workspace::focus_client(const xcb_window_t xwin)
     {
         auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
@@ -204,4 +242,5 @@ namespace cx::workspace
         m_root->client->set_geometry(m_space);
         m_root->parent = m_root.get();
     }
+
 }; // namespace cx::workspace

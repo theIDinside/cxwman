@@ -1,5 +1,6 @@
 #pragma once
 
+#include <xcb/xproto.h>
 namespace cx
 {
     namespace xcb_config_masks

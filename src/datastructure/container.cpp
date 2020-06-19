@@ -17,7 +17,7 @@ namespace cx::workspace
 
     ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry) noexcept
         : tag(std::move(container_tag)), client{}, left(nullptr), right(nullptr), parent(nullptr), policy(Layout::Vertical), split_ratio(0.5),
-          geometry(geometry), height(0)
+          geometry(geometry), m_tree_height(0)
     {
         assert(!client.has_value() && "Client should not be set using this constructor");
     }
@@ -25,13 +25,13 @@ namespace cx::workspace
     ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout,
                                  std::size_t height) noexcept
         : tag(std::move(container_tag)), client{}, left(nullptr), right(nullptr), parent(parent), policy(layout), split_ratio(0.5),
-          geometry(geometry), height(height)
+          geometry(geometry), m_tree_height(height)
     {
     }
     // Private constructor accessed from make_root
     ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, Layout layout) noexcept
         : tag(std::move(container_tag)), client{}, left(nullptr), right(nullptr), parent(this), policy(layout), split_ratio(0.5f), geometry(geometry),
-          height(0)
+          m_tree_height(0)
     {
         DBGLOG("Constructing root container: {}", tag);
     }
@@ -62,8 +62,8 @@ namespace cx::workspace
             tag.append("_container");
             auto [lsubtree_geometry, rsubtree_geometry] = split(geometry, policy);
             ;
-            left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lsubtree_geometry, this, policy, height + 1);
-            right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rsubtree_geometry, this, policy, height + 1);
+            left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lsubtree_geometry, this, policy, m_tree_height + 1);
+            right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rsubtree_geometry, this, policy, m_tree_height + 1);
             left->push_client(existing_client);
             right->push_client(new_client);
             client.reset(); // effectively making 'this' of branch type
@@ -186,6 +186,12 @@ namespace cx::workspace
     auto ContainerTree::make_root(const std::string& container_tag, geom::Geometry geometry, Layout layout) -> TreeOwned
     {
         return std::unique_ptr<ContainerTree>{new ContainerTree(container_tag, geometry, layout)};
+    }
+    geom::Position ContainerTree::center_of_top() {
+        auto& client_window = client.value();
+        auto pos = client_window.geometry.pos;
+        pos.x += client_window.geometry.width / 2;
+        return pos;
     }
 
 } // namespace cx::workspace

@@ -17,6 +17,7 @@
    - [ ] Basic graphics stuff, for example
         - [ ] Drawing a background
         - [ ] How does pixmaps work?
+   - [ ] Logging of various X information (perhaps glance at basic_wm?) 
 
  
 ## Todo's implementation details

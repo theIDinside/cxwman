@@ -5,7 +5,7 @@
 #include <string>
 #include <sys/time.h>
 #include <xcb/xcb.h>
-#include <xcom/connect.hpp>
+#include <xcom/manager.hpp>
 
 // TODO(simon): set up a configuration file in cmake, so this can be added by cmake automatically instead
 constexpr auto VERSION = "0.0.1";

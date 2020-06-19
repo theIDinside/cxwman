@@ -10,6 +10,7 @@
 namespace cx
 {
 
+    using i64 = signed long;
     using uint = unsigned int;
     using u16 = unsigned short;
     using u32 = std::uint32_t;
