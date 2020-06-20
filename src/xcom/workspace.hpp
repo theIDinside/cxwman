@@ -65,14 +65,6 @@ namespace cx::workspace
         /// rotates the focused client tile-pair positions
         void rotate_focus_pair();
 
-        /// Move's the focused client right in the ContainerTree leafs - this does not necessarily
-        /// translate to left/right in screen space coordinates. It only means that it moves left
-        /// or right in it's leaf position in the tree
-        void move_focused_right();
-        void move_focused_left();
-        void move_focused_up();
-        void move_focused_down();
-
         // This moves this window from it's anchor, in vector's direction.
         void move_focused(cx::events::ScreenSpaceDirection dir);
 

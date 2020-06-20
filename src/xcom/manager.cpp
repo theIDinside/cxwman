@@ -163,6 +163,7 @@ namespace cx
         xcb_map_window(get_conn(), evt->window);
     }
 
+    // FIXME: When killing clients down to only 1 client, mapping new clients fails.
     auto Manager::handle_unmap_request(xcb_unmap_window_request_t* event) -> void
     {
         // DBGLOG("Handle unmap request for {}", event->window);
