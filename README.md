@@ -12,6 +12,17 @@
    - [ ] Kill client & application
    - [ ] Custom configuration
    - [ ] Resize window
+        - Now this might be tricky to implement. I want to be able to resize a single window, and in doing so
+        not just the split ratio between itself and it's sibling. This might mean, that if the width is resized,
+        it might not even be the sibling client, whose width also get's resized. 
+        Another problem that might arise, is that once a client is resized, moving it to another place on the screen
+        introduces another issue; it now must teleport there, swap places with the client who is laid out there,
+        while resizing the client with whom it is beside now, and also resizing it's prior sibling.
+        
+        One way to possibly solve it: When resizing a window for example 10 pixels along the x-axis to the left,
+        is to find the left-most position on the client being resized, create a temporary geometry that is x pixels
+        wider to the left, and then scan the workspace, looking for collisions. All clients that get collided with, get
+        resized x amount of pixels.
    - [ ] Implement EWMH stuff
         - [x] add client names as tags to our internal representation of windows
    - [ ] Font stuff
@@ -29,13 +40,13 @@
 ### How to implement
 
 ##### Handling event functions that take parameters 
-As it is right now, key press events are handled by EventHandler, defined in manager.hpp. This is done by keeping
+As it is right now, key press events are handled by KeyEventHandler, defined in manager.hpp. This is done by keeping
 a std::map of KeyConfiguration->Pointer-To-Member-Functions. These however, take no parameters. So how to solve this issue?
 I don't want an enormous if-then-else wall.
 
-I guess one way to solve it, would be that before an action is handled by EventHandler, parameters can be registered
-*with* the EventHandler (from Manager), that then calls the pointer to member function (which is a ptm in Manager) that 
-takes no parameters, which then accesses the registered parameters from EventHandler (EventHandler as it is, is a local 
+I guess one way to solve it, would be that before an action is handled by KeyEventHandler, parameters can be registered
+*with* the KeyEventHandler (from Manager), that then calls the pointer to member function (which is a ptm in Manager) that 
+takes no parameters, which then accesses the registered parameters from KeyEventHandler (KeyEventHandler as it is, is a local 
 struct of Manager.)
 
 There are so many things that are totally hack-n-slash right now as far as the design goes, but it's just to get things up
