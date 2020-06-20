@@ -46,5 +46,6 @@ namespace cx::geom
     bool aabb_collision(const Geometry& p, const Geometry& geometry);
     Geometry operator+(const Geometry& lhs, const Position& rhs);
     Geometry operator*(const Geometry& lhs, int rhs);
-    Position wrapping_add(const Position& to, const Position& from, const Geometry& bounds, int add_on_wrap = 0);
+    Position wrapping_add(const Position& to, const Position& vector, const Geometry& bounds, int add_on_wrap = 0);
+    Position wrapping_sub(const Position& to, const Position& vector, const Geometry& bounds);
 } // namespace cx::geom

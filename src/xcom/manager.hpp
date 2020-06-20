@@ -122,8 +122,6 @@ namespace cx
             void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFP fnptr) { key_map[k_cfg] = fnptr; }
             void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFPWA fnptr, cx::events::EventArg arg) {
                 key_map_with_args.emplace(k_cfg, FunctionCall{fnptr, arg});
-                // key_map_with_args.insert();
-                // key_map_with_args[k_cfg] = FunctionCall{fnptr, arg};
             }
 
             Receiver* r;

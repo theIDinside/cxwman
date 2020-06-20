@@ -7,29 +7,28 @@ namespace cx::geom
         return Position{lhs.x + rhs.x, lhs.y + rhs.y};
     }
 
-    /// This function takes a position add_to and adds a vector add_from to it, and clamps the result to land within
+    /// This function takes a position add_to and adds the parameter vector to it, and clamps the result to land within
     /// the geometry of bounds (x0, y0, x0+width, y0+height). This is used when we move windows, because if the
     /// result lands outside of the root geometry, we must make sure it wraps around. add_on_wrap is how much
     /// we add to the result when it wraps around the geometry/screen. Default value is 0, but we will use 10 for the most part
-    Position wrapping_add(const Position& add_to, const Position& add_from, const Geometry& bounds, int add_on_wrap) {
+    Position wrapping_add(const Position& add_to, const Position& vector, const Geometry& bounds, int add_on_wrap) {
         auto res = Position{0,0};
-        if(add_to.x + add_from.x > bounds.x() + bounds.width) {
+        if(add_to.x + vector.x > bounds.x() + bounds.width) {
             res.x = bounds.x() + add_on_wrap;
-        } else if(add_to.x + add_from.x < bounds.x()) { // means add_from.x was a negative number
+        } else if(add_to.x + vector.x < bounds.x()) { // means vector.x was a negative number
             res.x = bounds.x() + bounds.width - add_on_wrap;
         } else { // we are within bounds of bounds
-            res.x = add_to.x + add_from.x;
+            res.x = add_to.x + vector.x;
         }
-        if(add_to.y + add_from.y > bounds.y() + bounds.height) {
+        if(add_to.y + vector.y > bounds.y() + bounds.height) {
             res.y = bounds.y() + add_on_wrap;
-        } else if(add_to.y + add_from.y < bounds.y()) {
+        } else if(add_to.y + vector.y < bounds.y()) {
             res.y = bounds.y() + bounds.height - add_on_wrap;
         } else {
-            res.y = add_to.y + add_from.y;
+            res.y = add_to.y + vector.y;
         }
         return res;
     }
-
 
     std::pair<Geometry, Geometry> v_split(const Geometry& g, float split_ratio)
     {
@@ -72,5 +71,6 @@ namespace cx::geom
     Geometry operator*(const Geometry& lhs, int rhs) {
         return Geometry{lhs.pos, lhs.width * rhs, lhs.height * rhs};
     }
+
 
 } // namespace cx::geom

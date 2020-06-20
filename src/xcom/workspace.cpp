@@ -180,18 +180,19 @@ namespace cx::workspace
         using Dir = cx::events::ScreenSpaceDirection;
         using Vector = Pos; // To just illustrate further what Pos actually represents in this function
         Pos target_space{0, 0};
+        const auto& bounds = m_root->geometry;
         switch(dir) {
         case Dir::UP:
-            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, -10}, m_root->geometry, 10);
+            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, -10}, bounds, 10);
             break;
         case Dir::DOWN:
-            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, foc_con->geometry.height + 10}, m_root->geometry, 10);
+            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, foc_con->geometry.height + 10}, bounds, 10);
             break;
         case Dir::LEFT:
-            target_space = geom::wrapping_add(foc_con->get_center() + Pos{-(foc_con->geometry.width / 2), 0}, Pos{-10, 0}, m_root->geometry, 10);
+            target_space = geom::wrapping_add(foc_con->get_center() + Pos{-1 * (foc_con->geometry.width / 2), 0}, Pos{-10, 0}, bounds, 10);
             break;
         case Dir::RIGHT:
-            target_space = geom::wrapping_add(foc_con->get_center() + Pos{foc_con->geometry.width / 2, 0}, Pos{10, 0}, m_root->geometry, 10);
+            target_space = geom::wrapping_add(foc_con->get_center() + Pos{foc_con->geometry.width / 2, 0}, Pos{10, 0}, bounds, 10);
             break;
         }
         if(!geom::is_inside(target_space, foc_con->geometry)) {
