@@ -32,7 +32,7 @@ if(NOT fmt_POPULATED)
     add_subdirectory(${fmt_SOURCE_DIR} ${fmt_BINARY_DIR})
 endif()
 
-set(SOURCES src/main.cpp src/xcom/manager.cpp src/datastructure/geometry.cpp src/xcom/window.cpp src/xcom/workspace.cpp src/datastructure/container.cpp src/xcom/utility/config.cpp src/xcom/xinit.cpp src/xcom/utility/logging/formatting.cpp src/xcom/utility/logging/formatting.h)
+set(SOURCES src/main.cpp src/xcom/manager.cpp src/datastructure/geometry.cpp src/xcom/window.cpp src/xcom/workspace.cpp src/datastructure/container.cpp src/xcom/utility/config.cpp src/xcom/xinit.cpp src/xcom/utility/logging/formatting.cpp src/xcom/utility/logging/formatting.h src/xcom/events.cpp src/xcom/events.hpp)
 set(HEADERS src/coreutils/core.hpp src/xcom/manager.hpp src/datastructure/geometry.hpp src/xcom/window.hpp src/xcom/workspace.hpp src/datastructure/container.hpp src/xcom/utility/config.hpp src/xcom/xinit.hpp)
 
 

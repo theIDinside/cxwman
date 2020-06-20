@@ -12,6 +12,7 @@
 // Library/Application headers
 #include <datastructure/geometry.hpp>
 
+#include "events.hpp"
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
 #include <xcom/utility/config.hpp>
@@ -28,7 +29,8 @@ namespace cx
     class Manager
     {
       public:
-        typedef void (Manager::*MFP)();
+        using MFP = void (Manager::*)();
+        using MFPWA = void (Manager::*)(cx::events::EventArg);
         // Public interface.
         static std::unique_ptr<Manager> initialize();
         void event_loop();
@@ -84,6 +86,8 @@ namespace cx
         // Client navigation/movement
         void rotate_focused_layout();
         void rotate_focused_pair();
+
+        void move_focused(cx::events::EventArg arg);
         void move_focused_left();
         void move_focused_right();
         void move_focused_up();
@@ -99,25 +103,35 @@ namespace cx
         ws::Workspace* focused_ws;
         std::vector<std::unique_ptr<ws::Workspace>> m_workspaces;
         // TODO: Use/Not use a map of std::functions as keybindings?
-        template <typename Receiver>
+        template<typename Receiver>
         struct EventHandler {
-            EventHandler() = default;
-            void handle(const config::KeyConfiguration& kc, Receiver* receiver) {
+            using FunctionCall = std::pair<typename Receiver::MFPWA, cx::events::EventArg>;
+            explicit EventHandler(Receiver* r) : r(r) {}
+            void handle(const config::KeyConfiguration& kc)
+            {
                 if(key_map.count(kc) >= 1) {
-                    (receiver->*key_map[kc])();
+                    (r->*key_map[kc])();
+                } else if(key_map_with_args.count(kc) >= 1) {
+                    auto& [fn, arg] = key_map_with_args[kc];
+                    (r->*fn)(arg);
                 } else {
                     Manager::noop();
                 }
             }
 
-            void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFP fnptr) {
-                key_map[k_cfg] = fnptr;
+            void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFP fnptr) { key_map[k_cfg] = fnptr; }
+            void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFPWA fnptr, cx::events::EventArg arg) {
+                key_map_with_args.emplace(k_cfg, FunctionCall{fnptr, arg});
+                // key_map_with_args.insert();
+                // key_map_with_args[k_cfg] = FunctionCall{fnptr, arg};
             }
-            std::map<config::KeyConfiguration, typename Receiver::MFP> key_map;
+
+            Receiver* r;
+            std::map<config::KeyConfiguration, typename Receiver::MFP> key_map{};
+            std::map<config::KeyConfiguration, FunctionCall> key_map_with_args{};
         };
 
-        EventHandler<Manager>  event_dispatcher;
-
+        EventHandler<Manager> event_dispatcher;
     };
 
 } // namespace cx

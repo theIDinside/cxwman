@@ -13,13 +13,14 @@ namespace cx::geom
         GU x, y;
         friend Position operator+(const Position& lhs, const Position& rhs);
     };
+
     Position operator+(const Position& lhs, const Position& rhs);
 
     struct Geometry {
         Position pos;
         GU width, height;
         Geometry(GU x, GU y, GU width, GU height) : pos{x, y}, width(width), height(height) {}
-        Geometry(Position p, GU width, GU height) : pos(std::move(p)), width(width), height(height) {}
+        Geometry(Position p, GU width, GU height) : pos(p), width(width), height(height) {}
 
         friend std::pair<Geometry, Geometry> v_split(const Geometry& g, float split_ratio);
         friend std::pair<Geometry, Geometry> h_split(const Geometry& g, float split_ratio);
@@ -29,6 +30,8 @@ namespace cx::geom
         constexpr inline auto xcb_value_list() -> std::array<GU, 4> { return {pos.x, pos.y, width, height}; }
 
         static Geometry default_new() { return Geometry{0, 0, 800, 600}; }
+
+        // This function
 
         friend bool aabb_collision(const Geometry& p, const Geometry& geometry);
         friend bool is_inside(const Position& p, const Geometry& geometry);
@@ -43,4 +46,5 @@ namespace cx::geom
     bool aabb_collision(const Geometry& p, const Geometry& geometry);
     Geometry operator+(const Geometry& lhs, const Position& rhs);
     Geometry operator*(const Geometry& lhs, int rhs);
+    Position wrapping_add(const Position& to, const Position& from, const Geometry& bounds, int add_on_wrap = 0);
 } // namespace cx::geom

@@ -58,6 +58,7 @@ namespace cx::workspace
         void rotate_children();
 
         geom::Position center_of_top();
+        geom::Position get_center();
 
         template<typename Predicate>
         friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>;
@@ -74,6 +75,7 @@ namespace cx::workspace
       protected:
         // Root constructor accessed from make_root
         ContainerTree(std::string container_tag, geom::Geometry geometry, Layout layout) noexcept;
+
     };
     using TreeRef = std::unique_ptr<ContainerTree>&;
     using TreeOwned = std::unique_ptr<ContainerTree>;

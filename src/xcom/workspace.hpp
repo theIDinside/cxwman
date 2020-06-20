@@ -45,7 +45,7 @@ namespace cx::workspace
         std::unique_ptr<ContainerTree> m_containers;
         std::vector<Window> m_floating_containers;
         std::unique_ptr<ContainerTree> m_root;
-        ContainerTree* focused_container;
+        ContainerTree* foc_con;
 
         /**
          * Returns geometry to the manager where we have stored this client, and where it should be mapped to. Mapping is still handled by
@@ -72,6 +72,12 @@ namespace cx::workspace
         void move_focused_left();
         void move_focused_up();
         void move_focused_down();
+
+        // This moves this window from it's anchor, in vector's direction.
+        void move_focused(cx::events::ScreenSpaceDirection dir);
+
+        void resize_focused_height();
+        void resize_focused_width();
 
 
         void focus_client(xcb_window_t xwin);

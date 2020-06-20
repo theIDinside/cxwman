@@ -1,3 +1,4 @@
+#include "events.hpp"
 #include <stack>
 #include <xcom/core.hpp>
 #include <xcom/workspace.hpp>
@@ -7,10 +8,10 @@ namespace cx::workspace
     Workspace::Workspace(cx::uint ws_id, std::string ws_name, cx::geom::Geometry space)
         : m_id(ws_id), m_name(ws_name), m_space(space),
           m_containers(nullptr), m_floating_containers{}, m_root{ContainerTree::make_root("root container", space, Layout::Horizontal)},
-          focused_container(nullptr), is_pristine(true)
+          foc_con(nullptr), is_pristine(true)
     {
         // std::make_unique<ContainerTree>("root container", geom::Geometry::default_new())
-        focused_container = m_root.get();
+        foc_con = m_root.get();
         m_root->parent = m_root.get();
     }
 
@@ -19,14 +20,14 @@ namespace cx::workspace
     {
         DBGLOG("Warning - function {} not implemented or implemented to test simple use cases", "Workspace::register_window");
         if(tiled) {
-            if(!focused_container->is_window()) {
-                focused_container->push_client(window);
-                return SplitConfigurations{focused_container->client.value()};
+            if(!foc_con->is_window()) {
+                foc_con->push_client(window);
+                return SplitConfigurations{foc_con->client.value()};
             } else {
-                focused_container->push_client(window);
-                auto existing_win = focused_container->left->client.value();
-                auto new_win = focused_container->right->client.value();
-                focused_container = focused_container->right.get();
+                foc_con->push_client(window);
+                auto existing_win = foc_con->left->client.value();
+                auto new_win = foc_con->right->client.value();
+                foc_con = foc_con->right.get();
                 return SplitConfigurations{existing_win, new_win};
             }
         } else {
@@ -39,7 +40,7 @@ namespace cx::workspace
     {
         auto& left_sibling = t->parent->left;
         auto& right_sibling = t->parent->right;
-        if(focused_container == t) {
+        if(foc_con == t) {
             // cx::println("This window is about to be unregistered. Focus pointer must be re-focused on another client");
             auto xwin = t->client->client_id;
             auto predicate = [xwin](auto& c_tree) {
@@ -106,83 +107,106 @@ namespace cx::workspace
         std::for_each(m_floating_containers.begin(), m_floating_containers.end(), mapper);
     }
 
-    void Workspace::rotate_focus_layout() { focused_container->rotate_container_layout(); }
+    void Workspace::rotate_focus_layout() { foc_con->rotate_container_layout(); }
 
-    void Workspace::rotate_focus_pair() { focused_container->rotate_children(); }
+    void Workspace::rotate_focus_pair() { foc_con->rotate_children(); }
     // TODO: reimplement as up and down versions to get more accurate results. Right now it might or might not actually move window left/right
     void Workspace::move_focused_right()
     {
-        auto cs = get_clients(cx::workspace::is_window_predicate);
-        auto index = 0;
-        auto found = false;
-        for(auto p : cs) {
-            if(p == focused_container) {
-                found = true;
-                break;
-            }
-            index++;
-        }
-        if(found) {
-            DBGLOG("Found client at {}", index);
-            if(index == cs.size() - 1) {
-                move_client(focused_container, *std::begin(cs));
+        auto target_space = geom::wrapping_add(foc_con->get_center() + Pos{foc_con->geometry.width / 2, 0}, Pos{10, 0}, m_root->geometry, 10);
+        if(!geom::is_inside(target_space, foc_con->geometry)) {
+            auto target_client =
+                in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+            if(target_client) {
+                move_client(foc_con, *target_client);
             } else {
-                move_client(focused_container, cs[index + 1]);
+                DBGLOG("Could not find a suitable window to swap with. Position: ({},{})", target_space.x, target_space.y);
             }
+        } else {
+            DBGLOG("Target position is inside source geometry. No move {}", "");
         }
     }
     // TODO: reimplement as up and down versions to get more accurate results. Right now it might or might not actually move window left/right
     void Workspace::move_focused_left()
     {
-        auto cs = get_clients(cx::workspace::is_window_predicate);
-        bool found = false;
-        auto index = 0;
-        for(auto p : cs) {
-            if(p == focused_container) {
-                found = true;
-                break;
-            }
-            index++;
-        }
-        if(found) {
-            DBGLOG("Found client at {}", index);
-            if(index == 0) {
-                move_client(focused_container, *std::rbegin(cs));
+        auto target_space = geom::wrapping_add(foc_con->get_center() + Pos{-(foc_con->geometry.width / 2), 0}, Pos{-10, 0}, m_root->geometry, 10);
+        if(!geom::is_inside(target_space, foc_con->geometry)) {
+            auto target_client =
+                in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+            if(target_client) {
+                move_client(foc_con, *target_client);
             } else {
-                move_client(focused_container, cs[index - 1]);
+                DBGLOG("Could not find a suitable window to swap with. Position: ({},{})", target_space.x, target_space.y);
             }
+        } else {
+            DBGLOG("Target position is inside source geometry. No move {}", "");
         }
     }
 
     void Workspace::move_focused_up()
     {
-        auto target_space = focused_container->center_of_top();
-        target_space.y -= 10;                       // this is now the position we search for, what client this lands within
-        if(target_space.y < m_root->geometry.y()) { // just like move_focused_down, wrap around, and start looking from the bottom instead
-            target_space.y = m_root->geometry.height - 10;
-        }
-        auto target_client =
-            in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
-        if(target_client) {
-            move_client(focused_container, *target_client);
+        auto target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, -10}, m_root->geometry, 10);
+        if(!geom::is_inside(target_space, foc_con->geometry)) {
+            auto target_client =
+                in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+            if(target_client) {
+                move_client(foc_con, *target_client);
+            } else {
+                DBGLOG("Could not find a suitable window to swap with. Position: ({},{})", target_space.x, target_space.y);
+            }
         } else {
-            DBGLOG("Could not find a suitable window to swap with{}", ".");
+            DBGLOG("Target position is inside source geometry. No move {}", "");
         }
     }
     void Workspace::move_focused_down()
     {
-        auto target_space = focused_container->center_of_top() + Pos{focused_container->geometry.width / 2, focused_container->geometry.height + 10};
-        if(target_space.y > m_root->geometry.height) { // wrap around, and look from top of screen space instead
-            target_space.y = m_root->geometry.y() + 1;
-        }
-        auto target_client =
-            in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
-        if(target_client) {
-            move_client(focused_container, *target_client);
+        auto source_position = foc_con->geometry.pos;
+        auto target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, foc_con->geometry.height + 10}, m_root->geometry, 10);
+        if(!geom::is_inside(target_space, foc_con->geometry)) {
+            auto target_client =
+                in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+            if(target_client) {
+                move_client(foc_con, *target_client);
+            } else {
+                DBGLOG("Could not find a suitable window to swap with. Position: ({},{})", target_space.x, target_space.y);
+            }
         } else {
-            DBGLOG("Could not find a suitable window to swap with{}", ".");
+            DBGLOG("Target position is inside source geometry. No move {}", "");
         }
     }
+
+    void Workspace::move_focused(cx::events::ScreenSpaceDirection dir)
+    {
+        using Dir = cx::events::ScreenSpaceDirection;
+        using Vector = Pos; // To just illustrate further what Pos actually represents in this function
+        Pos target_space{0, 0};
+        switch(dir) {
+        case Dir::UP:
+            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, -10}, m_root->geometry, 10);
+            break;
+        case Dir::DOWN:
+            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, foc_con->geometry.height + 10}, m_root->geometry, 10);
+            break;
+        case Dir::LEFT:
+            target_space = geom::wrapping_add(foc_con->get_center() + Pos{-(foc_con->geometry.width / 2), 0}, Pos{-10, 0}, m_root->geometry, 10);
+            break;
+        case Dir::RIGHT:
+            target_space = geom::wrapping_add(foc_con->get_center() + Pos{foc_con->geometry.width / 2, 0}, Pos{10, 0}, m_root->geometry, 10);
+            break;
+        }
+        if(!geom::is_inside(target_space, foc_con->geometry)) {
+            auto target_client =
+                in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+            if(target_client) {
+                move_client(foc_con, *target_client);
+            } else {
+                DBGLOG("Could not find a suitable window to swap with. Position: ({},{})", target_space.x, target_space.y);
+            }
+        } else {
+            DBGLOG("Target position is inside source geometry. No move {}", "");
+        }
+    }
+
     void Workspace::focus_client(const xcb_window_t xwin)
     {
         auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
@@ -195,7 +219,7 @@ namespace cx::workspace
         });
         if(c) {
             DBGLOG("Focused client is: [Frame: {}, Client: {}]", c.value()->client->frame_id, c.value()->client->client_id);
-            focused_container = *c;
+            foc_con = *c;
         } else {
             cx::println("Could not find managed window with id {}", xwin);
         }

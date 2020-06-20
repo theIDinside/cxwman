@@ -138,7 +138,7 @@ namespace cx
     Manager::Manager(xinit::XCBConn* connection, xinit::XCBScreen* screen, xinit::XCBDrawable root_drawable, xinit::XCBWindow root_window,
                      xinit::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
         : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
-          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}, event_dispatcher{}
+          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}, event_dispatcher{this}
     {
         // TODO: Set up key-combo-configurations with bindings like this? Or unnecessarily complex?
         actions[27] = [this]() {
@@ -255,7 +255,7 @@ namespace cx
         auto cfg = config::KeyConfiguration{ksym, event->state};
         // TODO: Is this the right way to deal with something like this? Too complex? I have no idea.
         // "Safe" event handler. Calls Manager::noop() if key-combo is not registered with a specific member function of Manager
-        event_dispatcher.handle(cfg, this);
+        event_dispatcher.handle(cfg);
     }
     // Fixme: Make sure client specific functionality isn't lost after re-parenting (such as client menu's should continue working)
     // Fixme: Does not showing client popup/dropdown menus have to do with not mapping their windows? (test basic_wm and see)
@@ -413,13 +413,17 @@ namespace cx
     {
         namespace xkm = xcb_key_masks;
         using KC = cx::config::KeyConfiguration;
+        using Arg = cx::events::EventArg;
+        using Dir = cx::events::ScreenSpaceDirection;
 
         event_dispatcher.register_action(KC{XK_F4, xkm::SUPER_SHIFT}, &Manager::rotate_focused_layout);
         event_dispatcher.register_action(KC{XK_r, xkm::SUPER_SHIFT}, &Manager::rotate_focused_pair);
-        event_dispatcher.register_action(KC{XK_Left, xkm::SUPER_SHIFT}, &Manager::move_focused_left);
-        event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::move_focused_right);
-        event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::move_focused_up);
-        event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::move_focused_down);
+
+        event_dispatcher.register_action(KC{XK_Left, xkm::SUPER_SHIFT}, &Manager::move_focused, Arg{Dir::LEFT});
+        event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::move_focused, Arg{Dir::RIGHT});
+        event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::move_focused, Arg{Dir::UP});
+        event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::move_focused, Arg{Dir::DOWN});
+
     }
 
     // Manager window/client actions
@@ -436,23 +440,11 @@ namespace cx
         focused_ws->display_update(get_conn());
     }
     void Manager::noop() { cx::println("Key combination not yet handled"); }
-    void Manager::move_focused_left()
-    {
-        focused_ws->move_focused_left();
-        focused_ws->display_update(get_conn());
-    }
-    void Manager::move_focused_right()
-    {
-        focused_ws->move_focused_right();
-        focused_ws->display_update(get_conn());
-    }
 
-    void Manager::move_focused_up() {
-        focused_ws->move_focused_up();
-        focused_ws->display_update(get_conn());
-    }
-    void Manager::move_focused_down() {
-        focused_ws->move_focused_down();
+    void Manager::move_focused(cx::events::EventArg arg) {
+        cx::println("Generalized move focused client call made");
+        auto value = std::get<cx::events::ScreenSpaceDirection>(arg.arg);
+        focused_ws->move_focused(value);
         focused_ws->display_update(get_conn());
     }
 } // namespace cx

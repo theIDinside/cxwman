@@ -194,4 +194,12 @@ namespace cx::workspace
         return pos;
     }
 
+    geom::Position ContainerTree::get_center() {
+        auto& client_window = client.value();
+        auto pos = client_window.geometry.pos;
+        pos.x += client_window.geometry.width / 2;
+        pos.y += client_window.geometry.height / 2;
+        return pos;
+    }
+
 } // namespace cx::workspace
