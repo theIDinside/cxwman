@@ -32,10 +32,9 @@ namespace cx
         using MFP = void (Manager::*)();
         using MFPWA = void (Manager::*)(cx::events::EventArg);
         // Public interface.
-        static std::unique_ptr<Manager> initialize();
-        void event_loop();
-        // FIXME?: Called when key-press combo is registered by WM, but not actually defined/handle a command
-        static void noop();
+        static auto initialize() -> std::unique_ptr<Manager>;
+        static auto noop() -> void;
+        auto event_loop() -> void;
 
       private:
         Manager(xinit::XCBConn* connection, xinit::XCBScreen* screen, xinit::XCBDrawable root_drawable, xinit::XCBWindow root_window,
@@ -81,17 +80,13 @@ namespace cx
         auto add_workspace(const std::string& workspace_tag, std::size_t screen_number = 0) -> void;
 
         auto load_keymap(const fs::path& file_path);
-        void setup_input_functions();
+        auto setup_input_functions() -> void;
 
         // Client navigation/movement
         void rotate_focused_layout();
         void rotate_focused_pair();
 
-        void move_focused(cx::events::EventArg arg);
-        void move_focused_left();
-        void move_focused_right();
-        void move_focused_up();
-        void move_focused_down();
+        auto move_focused(cx::events::EventArg arg) -> void;
 
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.
@@ -104,9 +99,12 @@ namespace cx
         std::vector<std::unique_ptr<ws::Workspace>> m_workspaces;
         // TODO: Use/Not use a map of std::functions as keybindings?
         template<typename Receiver>
-        struct EventHandler {
+        struct KeyEventHandler {
             using FunctionCall = std::pair<typename Receiver::MFPWA, cx::events::EventArg>;
-            explicit EventHandler(Receiver* r) : r(r) {}
+            explicit KeyEventHandler(Receiver* r) : r(r) {
+
+            }
+
             void handle(const config::KeyConfiguration& kc)
             {
                 if(key_map.count(kc) >= 1) {
@@ -120,7 +118,8 @@ namespace cx
             }
 
             void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFP fnptr) { key_map[k_cfg] = fnptr; }
-            void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFPWA fnptr, cx::events::EventArg arg) {
+            void register_action(const config::KeyConfiguration& k_cfg, typename Receiver::MFPWA fnptr, cx::events::EventArg arg)
+            {
                 key_map_with_args.emplace(k_cfg, FunctionCall{fnptr, arg});
             }
 
@@ -129,7 +128,7 @@ namespace cx
             std::map<config::KeyConfiguration, FunctionCall> key_map_with_args{};
         };
 
-        EventHandler<Manager> event_dispatcher;
+        KeyEventHandler<Manager> event_dispatcher;
     };
 
 } // namespace cx

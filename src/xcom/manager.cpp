@@ -23,7 +23,7 @@ namespace cx
 #define x_replace_str_prop(c, window, atom, string)                                                                                                  \
     xcb_change_property_checked(c, XCB_PROP_MODE_REPLACE, window, atom, XCB_ATOM_STRING, 8, name_len(string), string)
 
-    void Manager::setup()
+    auto Manager::setup() -> void
     {
         // TODO(implement): grab pre-existing windows, reparent them properly and manage them
         xcb_grab_server(get_conn());
@@ -31,7 +31,7 @@ namespace cx
         xcb_ungrab_server(get_conn());
     }
 
-    void Manager::setup_root_workspace_container()
+    auto Manager::setup_root_workspace_container() -> void
     {
         // auto win_geom = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), get_root()), nullptr);
         add_workspace("Workspace 1", 0);
@@ -41,7 +41,7 @@ namespace cx
     // Fixme: Currently pressing on client menus and specific buttons doesn't work. This has got to have to be because we set some flags
     // wrong, (or possibly not at all). Perhaps look to i3 for help?
 
-    std::unique_ptr<Manager> Manager::initialize()
+    auto Manager::initialize() -> std::unique_ptr<Manager>
     {
         int screen_number;
         xinit::XCBScreen* screen = nullptr;
@@ -138,7 +138,8 @@ namespace cx
     Manager::Manager(xinit::XCBConn* connection, xinit::XCBScreen* screen, xinit::XCBDrawable root_drawable, xinit::XCBWindow root_window,
                      xinit::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
         : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
-          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), actions{}, m_workspaces{}, event_dispatcher{this}
+          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{},
+          focused_ws(nullptr), actions{}, m_workspaces{}, event_dispatcher{this}
     {
         // TODO: Set up key-combo-configurations with bindings like this? Or unnecessarily complex?
         actions[27] = [this]() {
@@ -409,7 +410,7 @@ namespace cx
     {
         m_workspaces.emplace_back(std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, 0, 800, 600}));
     }
-    void Manager::setup_input_functions()
+    auto Manager::setup_input_functions() -> void
     {
         namespace xkm = xcb_key_masks;
         using KC = cx::config::KeyConfiguration;
@@ -423,28 +424,28 @@ namespace cx
         event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::move_focused, Arg{Dir::RIGHT});
         event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::move_focused, Arg{Dir::UP});
         event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::move_focused, Arg{Dir::DOWN});
-
     }
 
     // Manager window/client actions
 
-    void Manager::rotate_focused_layout()
+    auto Manager::rotate_focused_layout() -> void
     {
         focused_ws->rotate_focus_layout();
         focused_ws->display_update(get_conn());
     }
 
-    void Manager::rotate_focused_pair()
+    auto Manager::rotate_focused_pair() -> void
     {
         focused_ws->rotate_focus_pair();
         focused_ws->display_update(get_conn());
     }
-    void Manager::noop() { cx::println("Key combination not yet handled"); }
+    auto Manager::noop() -> void { cx::println("Key combination not yet handled"); }
 
-    void Manager::move_focused(cx::events::EventArg arg) {
+    auto Manager::move_focused(cx::events::EventArg arg) -> void
+    {
         cx::println("Generalized move focused client call made");
-        auto value = std::get<cx::events::ScreenSpaceDirection>(arg.arg);
-        focused_ws->move_focused(value);
+        auto cmd_arg = std::get<cx::events::ScreenSpaceDirection>(arg.arg);
+        focused_ws->move_focused(cmd_arg);
         focused_ws->display_update(get_conn());
     }
 } // namespace cx
