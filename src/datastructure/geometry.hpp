@@ -9,12 +9,17 @@ namespace cx::geom
 {
     // Geometry Unit
     using GU = int;
-    struct Position {
+    struct Vector {
         GU x, y;
-        friend Position operator+(const Position& lhs, const Position& rhs);
     };
 
-    Position operator+(const Position& lhs, const Position& rhs);
+    struct Position {
+        GU x, y;
+        friend Position operator+(const Position& lhs, const Vector& rhs);
+    };
+
+
+    Position operator+(const Position& lhs, const Vector& rhs);
 
     struct Geometry {
         Position pos;
@@ -22,8 +27,11 @@ namespace cx::geom
         Geometry(GU x, GU y, GU width, GU height) : pos{x, y}, width(width), height(height) {}
         Geometry(Position p, GU width, GU height) : pos(p), width(width), height(height) {}
 
-        friend std::pair<Geometry, Geometry> v_split(const Geometry& g, float split_ratio);
-        friend std::pair<Geometry, Geometry> h_split(const Geometry& g, float split_ratio);
+        friend auto v_split(const Geometry& g, float split_ratio) -> std::pair<Geometry, Geometry>;
+        friend auto h_split(const Geometry& g, float split_ratio) -> std::pair<Geometry, Geometry>;
+
+        friend auto v_split_at(const Geometry& g, int x) -> std::pair<Geometry, Geometry>;
+        friend auto h_split_at(const Geometry& g, int y) -> std::pair<Geometry, Geometry>;
 
         [[nodiscard]] constexpr inline GU y() const { return pos.y; }
         [[nodiscard]] constexpr inline GU x() const { return pos.x; }
@@ -39,13 +47,21 @@ namespace cx::geom
         // Scalar multiplication of the *dimensions*, i.e. width & height, not the anchor/position
         friend Geometry operator*(const Geometry& lhs, int rhs);
     };
-    std::pair<Geometry, Geometry> v_split(const Geometry& g, float split_ratio = 0.5f);
-    std::pair<Geometry, Geometry> h_split(const Geometry& g, float split_ratio = 0.5f);
+    auto v_split(const Geometry& g, float split_ratio = 0.5f) -> std::pair<Geometry, Geometry>;
+    auto h_split(const Geometry& g, float split_ratio = 0.5f) -> std::pair<Geometry, Geometry>;
+    auto v_split_at(const Geometry& g, int x) -> std::pair<Geometry, Geometry>;
+    auto h_split_at(const Geometry& g, int y) -> std::pair<Geometry, Geometry>;
+
     /// Aligned-axis bounding box collision
-    bool is_inside(const Position& p, const Geometry& geometry);
-    bool aabb_collision(const Geometry& p, const Geometry& geometry);
+    auto is_inside(const Position& p, const Geometry& geometry) -> bool;
+    auto aabb_collision(const Geometry& p, const Geometry& geometry) -> bool;
+
+    auto adjacent_to(const Geometry& client, const Geometry& target, int boundary_breadth = 3) -> bool;
+
+    auto aabb_collision2(const Geometry& p, const Geometry& geometry) -> Position;
+
     Geometry operator+(const Geometry& lhs, const Position& rhs);
     Geometry operator*(const Geometry& lhs, int rhs);
-    Position wrapping_add(const Position& to, const Position& vector, const Geometry& bounds, int add_on_wrap = 0);
-    Position wrapping_sub(const Position& to, const Position& vector, const Geometry& bounds);
+    Position wrapping_add(const Position& to, const Vector& vector, const Geometry& bounds, int add_on_wrap = 0);
+    Position wrapping_sub(const Position& to, const Vector& vector, const Geometry& bounds);
 } // namespace cx::geom

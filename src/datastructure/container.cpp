@@ -9,9 +9,18 @@ namespace cx::workspace
     auto split(const geom::Geometry& geometry, Layout policy, float split_ratio)
     {
         if(policy == Layout::Horizontal) {
-            return geom::v_split(geometry, split_ratio);
+            return geom::v_split_at(geometry, split_ratio);
         } else {
             return geom::h_split(geometry, split_ratio);
+        }
+    }
+
+    auto split_at(const geom::Geometry& geometry, Layout layout, geom::Position p)
+    {
+        if(layout == Layout::Horizontal) {
+            return geom::v_split_at(geometry, p.x);
+        } else {
+            return geom::h_split_at(geometry, p.y);
         }
     }
 
@@ -60,13 +69,25 @@ namespace cx::workspace
             tag.reserve(16);
             tag = con_prefix;
             tag.append("_container");
-            auto [lsubtree_geometry, rsubtree_geometry] = split(geometry, policy);
-            ;
-            left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lsubtree_geometry, this, policy, m_tree_height + 1);
-            right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rsubtree_geometry, this, policy, m_tree_height + 1);
-            left->push_client(existing_client);
-            right->push_client(new_client);
-            client.reset(); // effectively making 'this' of branch type
+            if(policy == Layout::Horizontal) {
+                auto [lgeo, rgeo] = geom::v_split_at(geometry, geometry.width / 2);
+                split_position.x = geometry.width / 2;
+                split_position.y = 0;
+                left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lgeo, this, policy, m_tree_height + 1);
+                right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rgeo, this, policy, m_tree_height + 1);
+                left->push_client(existing_client);
+                right->push_client(new_client);
+                client.reset(); // effectively making 'this' of branch type
+            } else if(policy == Layout::Vertical) {
+                auto [lgeo, rgeo] = geom::h_split_at(geometry, geometry.height / 2);
+                split_position.x = 0;
+                split_position.y = geometry.height / 2;
+                left = std::make_unique<ContainerTree>(existing_client.m_tag.m_tag, lgeo, this, policy, m_tree_height + 1);
+                right = std::make_unique<ContainerTree>(new_client.m_tag.m_tag, rgeo, this, policy, m_tree_height + 1);
+                left->push_client(existing_client);
+                right->push_client(new_client);
+                client.reset(); // effectively making 'this' of branch type
+            }
         } else {
             // default behavior is that each sub-division moves between horizontal / vertical layouts. if it's set to FLOATING we let it be
             if(this->policy == Layout::Vertical)
@@ -83,7 +104,9 @@ namespace cx::workspace
     void ContainerTree::update_subtree_geometry()
     {
         if(is_split_container()) {
-            auto [ltree_geo, rtree_geo] = split(geometry, policy);
+            auto [ltree_geo, rtree_geo] = split_at(geometry, policy, this->split_position);
+            cx::println("LG: ({},{}) : {} x {}\t RG: ({}, {}) : {} x {}", ltree_geo.x(), ltree_geo.y(), ltree_geo.width, ltree_geo.height,
+                        rtree_geo.x(), rtree_geo.y(), rtree_geo.width, rtree_geo.height);
             if(left) {
                 left->geometry = ltree_geo;
                 left->update_subtree_geometry();
@@ -94,6 +117,7 @@ namespace cx::workspace
             }
         }
         if(is_window()) {
+            cx::println("\tCG: ({},{}) : {} x {}", geometry.x(), geometry.y(), geometry.width, geometry.height);
             this->client->set_geometry(this->geometry);
         }
     }
@@ -104,9 +128,13 @@ namespace cx::workspace
         if(policy == Layout::Horizontal) {
             cx::println(" vertical");
             policy = Layout::Vertical;
+            split_position.x = 0;
+            split_position.y = geometry.height / 2;
         } else if(policy == Layout::Vertical) {
             cx::println(" horizontal");
             policy = Layout::Horizontal;
+            split_position.x = geometry.width / 2;
+            split_position.y = 0;
         }
         // else means it's floating, which we don't switch to or from
     }
@@ -127,7 +155,6 @@ namespace cx::workspace
             parent->update_subtree_geometry();
         }
     }
-
     // This looks rugged...
     void move_client(ContainerTree* from, ContainerTree* to)
     {
@@ -187,19 +214,23 @@ namespace cx::workspace
     {
         return std::unique_ptr<ContainerTree>{new ContainerTree(container_tag, geometry, layout)};
     }
-    geom::Position ContainerTree::center_of_top() {
+    geom::Position ContainerTree::center_of_top()
+    {
         auto& client_window = client.value();
         auto pos = client_window.geometry.pos;
         pos.x += client_window.geometry.width / 2;
         return pos;
     }
-
-    geom::Position ContainerTree::get_center() {
+    geom::Position ContainerTree::get_center()
+    {
         auto& client_window = client.value();
         auto pos = client_window.geometry.pos;
         pos.x += client_window.geometry.width / 2;
         pos.y += client_window.geometry.height / 2;
         return pos;
+    }
+    auto ContainerTree::begin_bubble() -> BubbleIterator<ContainerTree> {
+        return BubbleIterator{this, this->parent};
     }
 
 } // namespace cx::workspace

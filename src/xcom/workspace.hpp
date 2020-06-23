@@ -46,6 +46,7 @@ namespace cx::workspace
         std::vector<Window> m_floating_containers;
         std::unique_ptr<ContainerTree> m_root;
         ContainerTree* foc_con;
+        constexpr inline auto& focused() { return *foc_con; }
 
         /**
          * Returns geometry to the manager where we have stored this client, and where it should be mapped to. Mapping is still handled by
@@ -65,11 +66,18 @@ namespace cx::workspace
         /// rotates the focused client tile-pair positions
         void rotate_focus_pair();
 
-        // This moves this window from it's anchor, in vector's direction.
+        // This moves this window from it's anchor, in vector's dir.
         void move_focused(cx::events::ScreenSpaceDirection dir);
 
-        void resize_focused_height();
-        void resize_focused_width();
+        void increase_size_focused(cx::events::ResizeArgument arg);
+        void decrease_size_focused(cx::events::ScreenSpaceDirection dir, int steps);
+
+
+        // Depending if sp_dir is negative or positive, determines what direction (left/right) the width will be increased to
+        template <typename Predicate>
+        void increase_width(int sp_dir, Predicate child_of);
+
+
 
 
         void focus_client(xcb_window_t xwin);

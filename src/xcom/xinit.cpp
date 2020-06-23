@@ -62,10 +62,12 @@ namespace cx::xinit
 
     constexpr auto get_key_mod_bindings()
     {
+        constexpr auto mp = [](auto&& k, auto&& v) { return std::make_pair(std::forward<decltype(k)>(k), std::forward<decltype(v)>(v)); };
+
         namespace KM = xcb_key_masks;
-        return make_array(std::make_pair(KM::SUPER_SHIFT, XK_F4), std::make_pair(KM::SUPER_SHIFT, XK_R), std::make_pair(KM::SUPER_SHIFT, XK_Left),
-                          std::make_pair(KM::SUPER_SHIFT, XK_Right), std::make_pair(KM::SUPER_SHIFT, XK_Up),
-                          std::make_pair(KM::SUPER_SHIFT, XK_Down));
+        return make_array(mp(KM::SUPER_SHIFT, XK_F4), mp(KM::SUPER_SHIFT, XK_R), mp(KM::SUPER_SHIFT, XK_Left), mp(KM::SUPER_SHIFT, XK_Right),
+                          mp(KM::SUPER_SHIFT, XK_Up), mp(KM::SUPER_SHIFT, XK_Down), mp(KM::SUPER, XK_Left), mp(KM::SUPER, XK_Right),
+                          mp(KM::SUPER, XK_Up), mp(KM::SUPER, XK_Down));
     }
 
     void setup_key_press_listening(XCBConn* conn, XCBWindow root)

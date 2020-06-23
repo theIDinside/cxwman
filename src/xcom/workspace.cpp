@@ -64,8 +64,10 @@ namespace cx::workspace
                     auto root_tag = m_root->tag;
                     if(left_sibling.get() == t) {
                         anchor_new_root(std::move(t->parent->right), root_tag);
+                        left_sibling.reset();
                     } else if(right_sibling.get() == t) {
                         anchor_new_root(std::move(t->parent->left), root_tag);
+                        right_sibling.reset();
                     }
                     m_root->update_subtree_geometry();
                 }
@@ -114,21 +116,21 @@ namespace cx::workspace
     void Workspace::move_focused(cx::events::ScreenSpaceDirection dir)
     {
         using Dir = cx::events::ScreenSpaceDirection;
-        using Vector = Pos; // To just illustrate further what Pos actually represents in this function
+        using Vec = cx::geom::Vector;
         Pos target_space{0, 0};
         const auto& bounds = m_root->geometry;
         switch(dir) {
         case Dir::UP:
-            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, -10}, bounds, 10);
+            target_space = geom::wrapping_add(foc_con->center_of_top(), Vec{0, -10}, bounds, 10);
             break;
         case Dir::DOWN:
-            target_space = geom::wrapping_add(foc_con->center_of_top(), Pos{0, foc_con->geometry.height + 10}, bounds, 10);
+            target_space = geom::wrapping_add(foc_con->center_of_top(), Vec{0, foc_con->geometry.height + 10}, bounds, 10);
             break;
         case Dir::LEFT:
-            target_space = geom::wrapping_add(foc_con->get_center() + Pos{-1 * (foc_con->geometry.width / 2), 0}, Pos{-10, 0}, bounds, 10);
+            target_space = geom::wrapping_add(foc_con->get_center() + Vec{-1 * (foc_con->geometry.width / 2), 0}, Vec{-10, 0}, bounds, 10);
             break;
         case Dir::RIGHT:
-            target_space = geom::wrapping_add(foc_con->get_center() + Pos{foc_con->geometry.width / 2, 0}, Pos{10, 0}, bounds, 10);
+            target_space = geom::wrapping_add(foc_con->get_center() + Vec{foc_con->geometry.width / 2, 0}, Vec{10, 0}, bounds, 10);
             break;
         }
         if(!geom::is_inside(target_space, foc_con->geometry)) {
@@ -143,6 +145,54 @@ namespace cx::workspace
             DBGLOG("Target position is inside source geometry. No move {}", "");
         }
     }
+    /*
+     * TODO: implement a decrease_size_focused. The reason why this is not one single method is because when we increase size of a client, we check
+     *  for collisions with other clients, and decrease their size accordingly. However, when we decrease the size of a focused client, no
+     *  collisions will occur so essentially it will have to do completely different check operations. One way to possibly solve this, is to have yet
+     *  another member function that asks a question like "who is bound/connected to me at position P" and then *increase* that client's size.
+     *  Possible name of function found in geometry.hpp called adjacent_to. The question is if one should provide what side to of the client to scan
+     *  or if we scan all 4 sides of client geometry and return what side target geometry is adjacent to
+     */
+    void Workspace::increase_size_focused(cx::events::ResizeArgument arg)
+    {
+        using Dir = cx::events::ScreenSpaceDirection;
+        using Vector = Pos; // To just illustrate further what Pos actually represents in this function
+        switch(arg.dir) {
+        case Dir::UP:
+            cx::println("Resizing Up not implemented");
+            break;
+        case Dir::DOWN:
+            cx::println("Resizing Down not implemented");
+            break;
+        case Dir::LEFT:
+            increase_width(arg.get_value(), [](auto child, auto parent) { return parent->right.get() == child; });
+            break;
+        case Dir::RIGHT:
+            increase_width(arg.get_value(), [](auto child, auto parent) { return parent->left.get() == child; });
+            break;
+        }
+    }
+
+    template<typename Predicate>
+    void Workspace::increase_width(int steps, Predicate child_of)
+    {
+        auto found = false;
+        auto [child, parent] = focused().begin_bubble();
+        for(; !child->is_root() && !found; next_up(child, parent)) {
+            if(parent->policy == Layout::Horizontal && child_of(child, parent)) {
+                cx::println("Found container to resize. Attempting resize");
+                // Means it is this "parent" that needs a _decrease_ in size from it's left
+                found = true;
+                parent->split_position.x += steps;
+                parent->update_subtree_geometry();
+            }
+        }
+    }
+
+    void Workspace::decrease_size_focused(cx::events::ScreenSpaceDirection dir, int steps)
+    {
+        cx::println("Not yet implemented the decrease client function.");
+    }
 
     void Workspace::focus_client(const xcb_window_t xwin)
     {
@@ -155,7 +205,9 @@ namespace cx::workspace
             return false;
         });
         if(c) {
-            DBGLOG("Focused client is: [Frame: {}, Client: {}]", c.value()->client->frame_id, c.value()->client->client_id);
+            auto client = c.value()->client.value();
+            DBGLOG("Focused client: [Frame: {}, Client: {}] @ (x:{},y:{}) (w:{} x h:{})", client.frame_id, client.client_id, client.geometry.x(),
+                   client.geometry.y(), client.geometry.width, client.geometry.height);
             foc_con = *c;
         } else {
             cx::println("Could not find managed window with id {}", xwin);
@@ -192,8 +244,11 @@ namespace cx::workspace
         m_root = std::move(new_root);
         m_root->tag = tag;
         m_root->geometry = m_space;
-        m_root->client->set_geometry(m_space);
-        m_root->parent = m_root.get();
+        if(m_root->is_window()) { // means we have 1 window, full screened
+            m_root->client->set_geometry(m_space);
+            m_root->parent = m_root.get();
+        } else {
+        }
     }
 
 }; // namespace cx::workspace

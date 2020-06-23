@@ -7,7 +7,21 @@
 
 namespace cx::workspace
 {
-    enum BranchDir { Left, Right };
+
+    /// This is a utility wrapper for iterating in a straight line upwards a tree
+    template <typename TreeNode>
+    struct BubbleIterator {
+        BubbleIterator(TreeNode* current, TreeNode* parent) : current(current), parent(parent) {}
+        TreeNode* current;
+        TreeNode* parent;
+    };
+
+    template <typename TreeNode>
+    void next_up(TreeNode& current, TreeNode& next) {
+        current = next;
+        next = current->parent;
+    }
+
 
     enum class Layout { Vertical, Horizontal, Floating };
 
@@ -23,6 +37,7 @@ namespace cx::workspace
     }
 
     auto split(const geom::Geometry& geometry, Layout layout, float split_ratio = 0.5f);
+    auto split_at(const geom::Geometry& geometry, Layout layout, geom::Position p);
 
     /**
      * ContainerTree emulates a tree type which is a discriminated union. To fully make it as such, one should probably have it's "data"
@@ -45,10 +60,12 @@ namespace cx::workspace
         float split_ratio;
         geom::Geometry geometry;
         std::size_t m_tree_height;
-
+        geom::Position split_position;
         [[nodiscard]] bool is_root() const;
         [[nodiscard]] bool is_split_container() const; // basically "is_branch?"
         [[nodiscard]] bool is_window() const;          // basically "is_leaf?"
+
+        [[nodiscard]] auto begin_bubble() -> BubbleIterator<ContainerTree>;
 
         void push_client(Window new_client);
         void update_subtree_geometry();
@@ -62,7 +79,6 @@ namespace cx::workspace
 
         template<typename Predicate>
         friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>;
-
         // run MapFn on each item in the tree, that is of window "type"
         template<typename MapFn>
         friend auto in_order_window_map(std::unique_ptr<ContainerTree>& tree, MapFn fn) -> void;
@@ -110,5 +126,19 @@ namespace cx::workspace
             return {};
         }
     }
+
+    template<typename Predicate>
+    auto in_order_collect_by(std::unique_ptr<ContainerTree>& tree, std::vector<ContainerTree*>& result, Predicate p)
+    {
+        if(!tree)
+            return;
+        in_order_collect_by(tree->left, result, p);
+        if(p(tree)) {
+            result.push_back(tree.get());
+        }
+        in_order_collect_by(tree->right, result, p);
+    }
+
+
 
 } // namespace cx::workspace

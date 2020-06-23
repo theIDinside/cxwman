@@ -87,6 +87,7 @@ namespace cx
         void rotate_focused_pair();
 
         auto move_focused(cx::events::EventArg arg) -> void;
+        auto resize_focused(cx::events::EventArg arg) -> void;
 
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.
