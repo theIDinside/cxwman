@@ -29,10 +29,9 @@ namespace cx
 
     // Deduces array type and size by arguments passed. Obviously, these can only be of the same type. But
     // This is a handy utility function, which will be less error prone when I add/remove key-combos at compile time (in connect.cpp)
-    template<typename... Args>
-    constexpr auto make_array(Args&&... args)
+    constexpr auto make_array(auto&& ... args)
     {
-        return std::array<std::decay_t<std::common_type_t<Args...>>, sizeof...(Args)>{args...};
+        return std::array<std::decay_t<std::common_type_t<decltype(args)...>>, sizeof...(args)>{args...};
     }
 } // namespace cx
 
