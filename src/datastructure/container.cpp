@@ -4,17 +4,6 @@
 namespace cx::workspace
 {
 
-    // If layout policy is FLOATING, passing that in here will return Vertical.
-    // But as a matter of fact, splitting a floating window makes no sense. So it means you are dumb.
-    auto split(const geom::Geometry& geometry, Layout policy, float split_ratio)
-    {
-        if(policy == Layout::Horizontal) {
-            return geom::v_split_at(geometry, split_ratio);
-        } else {
-            return geom::h_split(geometry, split_ratio);
-        }
-    }
-
     auto split_at(const geom::Geometry& geometry, Layout layout, geom::Position p)
     {
         if(layout == Layout::Horizontal) {
@@ -162,8 +151,7 @@ namespace cx::workspace
         auto parent_from = from->parent;
         auto parent_to = to->parent;
         if(!from->is_root() && !to->is_root()) {
-            if(parent_from == parent_to) {
-                cx::println("Client from and Client to has the same parent. Swapping sibling positions");
+            if(parent_from == parent_to) { // Client from and Client to has the same parent. Swapping sibling positions
                 parent_from->left.swap(parent_from->right);
             } else {
                 if(parent_from->right.get() == from) {
@@ -214,23 +202,19 @@ namespace cx::workspace
     {
         return std::unique_ptr<ContainerTree>{new ContainerTree(container_tag, geometry, layout)};
     }
-    geom::Position ContainerTree::center_of_top()
+    geom::Position ContainerTree::center_of_top() const
     {
         auto& client_window = client.value();
         auto pos = client_window.geometry.pos;
         pos.x += client_window.geometry.width / 2;
         return pos;
     }
-    geom::Position ContainerTree::get_center()
+    geom::Position ContainerTree::get_center() const
     {
         auto& client_window = client.value();
-        auto pos = client_window.geometry.pos;
-        pos.x += client_window.geometry.width / 2;
-        pos.y += client_window.geometry.height / 2;
+        auto pos = client_window.geometry.pos + geom::Vector{client_window.geometry.width / 2, client_window.geometry.height / 2};
         return pos;
     }
-    auto ContainerTree::begin_bubble() -> BubbleIterator<ContainerTree> {
-        return BubbleIterator{this, this->parent};
-    }
+    auto ContainerTree::begin_bubble() -> BubbleIterator<ContainerTree> { return BubbleIterator{this, this->parent}; }
 
 } // namespace cx::workspace

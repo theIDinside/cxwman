@@ -1,12 +1,13 @@
 #include "events.hpp"
 #include <stack>
 #include <xcom/core.hpp>
+#include <utility>
 #include <xcom/workspace.hpp>
 
 namespace cx::workspace
 {
-    Workspace::Workspace(cx::uint ws_id, std::string ws_name, cx::geom::Geometry space)
-        : m_id(ws_id), m_name(ws_name), m_space(space),
+    Workspace::Workspace(cx::uint ws_id, std::string ws_name, cx::geom::Geometry space) noexcept
+        : m_id(ws_id), m_name(std::move(ws_name)), m_space(space),
           m_containers(nullptr), m_floating_containers{}, m_root{ContainerTree::make_root("root container", space, Layout::Horizontal)},
           foc_con(nullptr), is_pristine(true)
     {
@@ -18,7 +19,6 @@ namespace cx::workspace
     // FIXME: If all windows get unmapped, and a new client try to register, we crash, sometime inside or almost directly after this method
     auto Workspace::register_window(Window window, bool tiled) -> std::optional<SplitConfigurations>
     {
-        DBGLOG("Warning - function {} not implemented or implemented to test simple use cases", "Workspace::register_window");
         if(tiled) {
             if(!foc_con->is_window()) {
                 foc_con->push_client(window);
@@ -40,17 +40,6 @@ namespace cx::workspace
     {
         auto& left_sibling = t->parent->left;
         auto& right_sibling = t->parent->right;
-        if(foc_con == t) {
-            // cx::println("This window is about to be unregistered. Focus pointer must be re-focused on another client");
-            auto xwin = t->client->client_id;
-            auto predicate = [xwin](auto& c_tree) {
-                if(c_tree->is_window()) {
-                    if(c_tree->client->client_id == xwin || c_tree->client->frame_id == xwin)
-                        return true;
-                }
-                return false;
-            };
-        }
         if(t->is_window()) {
             if(left_sibling && right_sibling) {
                 if(!t->parent->is_root()) {
@@ -78,17 +67,15 @@ namespace cx::workspace
     auto Workspace::find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>
     {
         return in_order_traverse_find(m_root, [xwin](auto& c_tree) {
-            if(c_tree->is_window()) {
-                if(c_tree->client->client_id == xwin || c_tree->client->frame_id == xwin)
-                    return true;
-            }
-            return false;
+            if(c_tree->is_window())
+                return c_tree->client->client_id == xwin || c_tree->client->frame_id == xwin;
+            else
+                return false;
         });
     }
 
     auto Workspace::display_update(xcb_connection_t* c) -> void
     {
-
         auto mapper = [c](auto& window) {
             // auto window = window_opt;
             namespace xcm = cx::xcb_config_masks;
@@ -109,9 +96,9 @@ namespace cx::workspace
         std::for_each(m_floating_containers.begin(), m_floating_containers.end(), mapper);
     }
 
-    void Workspace::rotate_focus_layout() { foc_con->rotate_container_layout(); }
+    void Workspace::rotate_focus_layout() const { foc_con->rotate_container_layout(); }
 
-    void Workspace::rotate_focus_pair() { foc_con->rotate_children(); }
+    void Workspace::rotate_focus_pair() const { foc_con->rotate_children(); }
 
     void Workspace::move_focused(cx::events::ScreenSpaceDirection dir)
     {
@@ -179,9 +166,8 @@ namespace cx::workspace
         auto found = false;
         auto [child, parent] = focused().begin_bubble();
         for(; !child->is_root() && !found; next_up(child, parent)) {
-            if(parent->policy == Layout::Horizontal && child_of(child, parent)) {
-                cx::println("Found container to resize. Attempting resize");
-                // Means it is this "parent" that needs a _decrease_ in size from it's left
+            if(parent->policy == Layout::Horizontal &&
+               child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
                 found = true;
                 parent->split_position.x += steps;
                 parent->update_subtree_geometry();
@@ -189,7 +175,7 @@ namespace cx::workspace
         }
     }
 
-    void Workspace::decrease_size_focused(cx::events::ScreenSpaceDirection dir, int steps)
+    [[maybe_unused]] void Workspace::decrease_size_focused(cx::events::ResizeArgument arg)
     {
         cx::println("Not yet implemented the decrease client function.");
     }
@@ -198,9 +184,7 @@ namespace cx::workspace
     {
         auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
             if(tree->is_window()) {
-                if(tree->client->client_id == xwin || tree->client->frame_id == xwin) {
-                    return true;
-                }
+                return tree->client->client_id == xwin || tree->client->frame_id == xwin;
             }
             return false;
         });
@@ -217,7 +201,7 @@ namespace cx::workspace
     // This makes it, so we can "teleport" windows. We can an in-order list
     // so moving a window right, will move it along the bottom of the tree to the right, and vice versa
     template<typename P>
-    std::vector<ContainerTree*> Workspace::get_clients(P p)
+    [[maybe_unused]] std::vector<ContainerTree*> Workspace::get_clients(P p)
     {
         // TODO(implement): Add template to this, so we can pass in a predicate, so we can say "we want windows according to rule X"
         std::vector<ContainerTree*> clients{};
@@ -248,6 +232,8 @@ namespace cx::workspace
             m_root->client->set_geometry(m_space);
             m_root->parent = m_root.get();
         } else {
+            // TODO: I have completely forgotten what I should do here. This will most likely result in some bug. Keep checking back when I have the
+            //  energy
         }
     }
 

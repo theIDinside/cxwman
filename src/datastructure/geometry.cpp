@@ -4,16 +4,15 @@
 namespace cx::geom
 {
 
-    Position operator+(const Position& lhs, const Vector& rhs) {
-        return Position{lhs.x + rhs.x, lhs.y + rhs.y};
-    }
+    Position operator+(const Position& lhs, const Vector& rhs) { return Position{lhs.x + rhs.x, lhs.y + rhs.y}; }
 
     /// This function takes a position add_to and adds the parameter vector to it, and clamps the result to land within
     /// the geometry of bounds (x0, y0, x0+width, y0+height). This is used when we move windows, because if the
     /// result lands outside of the root geometry, we must make sure it wraps around. add_on_wrap is how much
     /// we add to the result when it wraps around the geometry/screen. Default value is 0, but we will use 10 for the most part
-    Position wrapping_add(const Position& add_to, const Vector& vector, const Geometry& bounds, int add_on_wrap) {
-        auto res = Position{0,0};
+    Position wrapping_add(const Position& add_to, const Vector& vector, const Geometry& bounds, int add_on_wrap)
+    {
+        auto res = Position{0, 0};
         if(add_to.x + vector.x > bounds.x() + bounds.width) {
             res.x = bounds.x() + add_on_wrap;
         } else if(add_to.x + vector.x < bounds.x()) { // means vector.x was a negative number
@@ -49,7 +48,8 @@ namespace cx::geom
         return {Geometry{g.x(), g.y(), g.width, theight}, Geometry{g.x(), by, g.width, bheight}};
     }
 
-    auto v_split_at(const Geometry& g, int x) -> std::pair<Geometry, Geometry> {
+    auto v_split_at(const Geometry& g, int x) -> std::pair<Geometry, Geometry>
+    {
         assert(x < g.width && "you can't split at relative x greater than g.width.");
         auto width_left = x;
         auto width_right = g.width - x;
@@ -59,7 +59,8 @@ namespace cx::geom
         assert(width_right > 0 && width_left > 0 && "Width have to be > 0");
         return {Geometry{p_left, width_left, height}, Geometry{p_right, width_right, height}};
     }
-    auto h_split_at(const Geometry& g, int y) -> std::pair<Geometry, Geometry> {
+    auto h_split_at(const Geometry& g, int y) -> std::pair<Geometry, Geometry>
+    {
         assert(y < g.height && "You can't split at relative y greater than g.height");
         auto height_top = y;
         auto height_bottom = g.height - y;
@@ -85,19 +86,7 @@ namespace cx::geom
         return x_collision && y_collision;
     }
 
-    auto aabb_collision2(const Geometry& a, const Geometry& b) -> Position
-    {
-        auto x_collision = ((a.x() + a.width > b.x()) && (b.x() + b.width > a.x()));
-        auto y_collision = ((a.y() + a.height > b.y()) && (b.y() + b.height > a.y()));
-        return Position{};
-    }
-
-    Geometry operator+(const Geometry& lhs, const Position& rhs) {
-        return Geometry{lhs.pos.x + rhs.x, lhs.pos.y + rhs.y, lhs.width, lhs.height};
-    }
-
-    Geometry operator*(const Geometry& lhs, int rhs) {
-        return Geometry{lhs.pos, lhs.width * rhs, lhs.height * rhs};
-    }
+    Geometry operator+(const Geometry& lhs, const Position& rhs) { return Geometry{lhs.pos.x + rhs.x, lhs.pos.y + rhs.y, lhs.width, lhs.height}; }
+    Geometry operator*(const Geometry& lhs, int rhs) { return Geometry{lhs.pos, lhs.width * rhs, lhs.height * rhs}; }
 
 } // namespace cx::geom

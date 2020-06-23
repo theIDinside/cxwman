@@ -18,7 +18,6 @@ namespace cx::geom
         friend Position operator+(const Position& lhs, const Vector& rhs);
     };
 
-
     Position operator+(const Position& lhs, const Vector& rhs);
 
     struct Geometry {
@@ -55,10 +54,7 @@ namespace cx::geom
     /// Aligned-axis bounding box collision
     auto is_inside(const Position& p, const Geometry& geometry) -> bool;
     auto aabb_collision(const Geometry& p, const Geometry& geometry) -> bool;
-
     auto adjacent_to(const Geometry& client, const Geometry& target, int boundary_breadth = 3) -> bool;
-
-    auto aabb_collision2(const Geometry& p, const Geometry& geometry) -> Position;
 
     Geometry operator+(const Geometry& lhs, const Position& rhs);
     Geometry operator*(const Geometry& lhs, int rhs);

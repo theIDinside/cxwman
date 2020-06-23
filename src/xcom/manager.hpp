@@ -78,7 +78,7 @@ namespace cx
         // TODO(implement): Unmaps currently focused workspace, and maps workspace ws
         auto map_workspace(ws::Workspace& ws) -> void;
         auto add_workspace(const std::string& workspace_tag, std::size_t screen_number = 0) -> void;
-
+        // TODO: implement some rudimentary configuration system that can load key actions from file and/or bind key actions at runtime
         auto load_keymap(const fs::path& file_path);
         auto setup_input_functions() -> void;
 
@@ -102,9 +102,7 @@ namespace cx
         template<typename Receiver>
         struct KeyEventHandler {
             using FunctionCall = std::pair<typename Receiver::MFPWA, cx::events::EventArg>;
-            explicit KeyEventHandler(Receiver* r) : r(r) {
-
-            }
+            explicit KeyEventHandler(Receiver* r) : r(r) {}
 
             void handle(const config::KeyConfiguration& kc)
             {

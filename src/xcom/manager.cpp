@@ -283,13 +283,9 @@ namespace cx
 
         // construct frame
         auto frame_id = xcb_generate_id(get_conn());
-
-        // Where that is, depends on how we split subspaces, layout strategies etc. For now, we just put it at 0, 0
-
-        uint32_t mask = 0;
         uint32_t values[2];
         /* see include/xcb.h for the FRAME_EVENT_MASK */
-        mask = XCB_CW_BORDER_PIXEL;
+        uint32_t mask = XCB_CW_BORDER_PIXEL;
         values[0] = border_color;
         mask |= XCB_CW_EVENT_MASK;
         // FIXME(Client menus): Should work, but currently doesn't. Perhaps some flag wrong set, or not set at all?
@@ -341,6 +337,8 @@ namespace cx
         xcb_unmap_window(get_conn(), w.frame_id);
         xcb_reparent_window(get_conn(), w.client_id, get_root(), 0, 0);
         xcb_destroy_window(get_conn(), w.frame_id);
+        client_to_frame_mapping.erase(w.client_id);
+        frame_to_client_mapping.erase(w.frame_id);
     }
 
     auto Manager::configure_window_geometry(ws::Window window) -> void
@@ -431,7 +429,6 @@ namespace cx
         event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::resize_focused, Arg{ResizeArg{Dir::RIGHT, 10}});
         event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::resize_focused, Arg{ResizeArg{Dir::UP, 10}});
         event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::resize_focused, Arg{ResizeArg{Dir::DOWN, 10}});
-
     }
 
     // Manager window/client actions
