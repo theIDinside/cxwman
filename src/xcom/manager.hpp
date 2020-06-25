@@ -25,6 +25,9 @@ namespace cx
     namespace ws = cx::workspace;
     namespace fs = std::filesystem;
 
+    /// This also free's the memory pointed to by reply
+    auto process_x_geometry(xcb_get_geometry_reply_t* reply) -> std::optional<geom::Geometry>;
+
     constexpr auto MouseModMask = XCB_MOD_MASK_1;
     class Manager
     {

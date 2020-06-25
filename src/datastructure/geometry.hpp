@@ -37,7 +37,7 @@ namespace cx::geom
         constexpr inline auto xcb_value_list() -> std::array<GU, 4> { return {pos.x, pos.y, width, height}; }
 
         static Geometry default_new() { return Geometry{0, 0, 800, 600}; }
-
+        static Geometry window_default() { return Geometry{0, 0, 400, 400}; }
         // This function
 
         friend bool aabb_collision(const Geometry& p, const Geometry& geometry);

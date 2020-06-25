@@ -4,38 +4,41 @@
 
 ## Todo's (features and questions)
 1. Setup specific key & key combos for window manager actions such as:
-   - [x] Rotate window left/right
-   - [x] Rotate layout in client tile-pair
-   - [x] Move window left/right
-   - [x] Move window up/down
-   - [x] Teleport window to (implementation done, user functionality not yet done)
-   - [ ] Kill client & application
    - [ ] Custom configuration
-   - [ ] Resize window
-        - Now this might be tricky to implement. I want to be able to resize a single window, and in doing so
-        not just the split ratio between itself and it's sibling. This might mean, that if the width is resized,
-        it might not even be the sibling client, whose width also get's resized. 
-        Another problem that might arise, is that once a client is resized, moving it to another place on the screen
-        introduces another issue; it now must teleport there, swap places with the client who is laid out there,
-        while resizing the client with whom it is beside now, and also resizing it's prior sibling.
-        
-        One way to possibly solve it: When resizing a window for example 10 pixels along the x-axis to the left,
-        is to find the left-most position on the client being resized, create a temporary geometry that is x pixels
-        wider to the left, and then scan the workspace, looking for collisions. All clients that get collided with, get
-        resized x amount of pixels.
    - [ ] Implement EWMH stuff
         - [x] add client names as tags to our internal representation of windows
    - [ ] Font stuff
    - [ ] Basic graphics stuff, for example
         - [ ] Drawing a background
         - [ ] How does pixmaps work?
-   - [ ] Logging of various X information (perhaps glance at basic_wm?) 
-
- 
-## Todo's implementation details
-
-   - [x] Grab WM Hints and WM atoms etc. Can we get client names, so we can use them as identifiers?
+   - [ ] Logging of various X information (perhaps glance at basic_wm?)
+   - [ ] Implement some form of [docking container](#docking-container) window, that will contain clickable widgets, for instance "go to workspace x"
    
+### User action features
+   - [x] Rotate window left/right
+   - [x] Rotate layout in client tile-pair
+   - [x] Move window left/right
+   - [x] Move window up/down
+   - [x] Teleport window to (implementation done, user functionality not yet done)
+   - [ ] Kill client & application
+   - [ ] Make window floating
+   - [ ] Anchor tree to window (make it tiled)
+   - [x] Resize tiled window
+   - [ ] Resize floating window (easy.. Just tell X to resize, since we don't care how or where it ends up)
+   - [ ] Make a run command user input window (described under section ["User command input window"](#user-command-input-window))
+### User command input window
+
+#### Feature ideas
+   - Input box, which can translate user input to commands currently bound to global key-combos
+   - Execute shell commands 
+
+
+### Docking container
+Similar to that of windows or linux. Containing things like what workspace one is on, or showing sys applets etc. 
+Simple stuff to begin with.
+
+## Todo's implementation details
+   - [x] Grab WM Hints and WM atoms etc. Can we get client names, so we can use them as identifiers?
    
 ### How to implement
 

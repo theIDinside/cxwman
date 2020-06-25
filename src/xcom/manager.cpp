@@ -274,7 +274,7 @@ namespace cx
         }
 
         auto win_attr = xcb_get_window_attributes_reply(get_conn(), xcb_get_window_attributes(get_conn(), window), nullptr);
-        auto client_geometry = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), window), nullptr);
+        auto client_geometry = process_x_geometry(xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), window), nullptr));
         if(created_before_wm) {
             cx::println("Window was created before WM.");
             if(win_attr->override_redirect || win_attr->map_state != XCB_MAP_STATE_VIEWABLE)
@@ -296,13 +296,8 @@ namespace cx
                                                border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
 
         cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 0, 0);
-
-        auto x = static_cast<geom::GU>(client_geometry->x);
-        auto y = static_cast<geom::GU>(client_geometry->y);
-        auto w = static_cast<geom::GU>(client_geometry->width);
-        auto h = static_cast<geom::GU>(client_geometry->height);
         auto tag = xinit::get_client_wm_name(get_conn(), window);
-        ws::Window win{geom::Geometry{x, y, w, h}, window, frame_id, ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
+        ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id, ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
         cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
         cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
 
@@ -329,7 +324,6 @@ namespace cx
         client_to_frame_mapping[window] = frame_id;
         frame_to_client_mapping[frame_id] = window;
         delete win_attr;
-        delete client_geometry;
     }
 
     auto Manager::unframe_window(const ws::Window& w) -> void
@@ -437,7 +431,6 @@ namespace cx
     }
 
     // Manager window/client actions
-
     auto Manager::rotate_focused_layout() -> void
     {
         focused_ws->rotate_focus_layout();
@@ -464,9 +457,21 @@ namespace cx
         focused_ws->increase_size_focused(resize_arg);
         focused_ws->display_update(get_conn());
     }
-    auto Manager::decrease_size_focused(cx::events::EventArg arg) -> void {
+    auto Manager::decrease_size_focused(cx::events::EventArg arg) -> void
+    {
         auto size_arg = std::get<cx::events::ResizeArgument>(arg.arg);
         focused_ws->decrease_size_focused(size_arg);
         focused_ws->display_update(get_conn());
+    }
+    auto process_x_geometry(xcb_get_geometry_reply_t* reply) -> std::optional<geom::Geometry>
+    {
+        if(reply) {
+            auto res = geom::Geometry{static_cast<geom::GU>(reply->x), static_cast<geom::GU>(reply->y), static_cast<geom::GU>(reply->width),
+                                  static_cast<geom::GU>(reply->height)};
+            delete reply;
+            return res;
+        } else {
+            return {};
+        }
     }
 } // namespace cx

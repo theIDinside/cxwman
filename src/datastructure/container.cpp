@@ -94,8 +94,6 @@ namespace cx::workspace
     {
         if(is_split_container()) {
             auto [ltree_geo, rtree_geo] = split_at(geometry, policy, this->split_position);
-            cx::println("LG: ({},{}) : {} x {}\t RG: ({}, {}) : {} x {}", ltree_geo.x(), ltree_geo.y(), ltree_geo.width, ltree_geo.height,
-                        rtree_geo.x(), rtree_geo.y(), rtree_geo.width, rtree_geo.height);
             if(left) {
                 left->geometry = ltree_geo;
                 left->update_subtree_geometry();
@@ -106,21 +104,17 @@ namespace cx::workspace
             }
         }
         if(is_window()) {
-            cx::println("\tCG: ({},{}) : {} x {}", geometry.x(), geometry.y(), geometry.width, geometry.height);
             this->client->set_geometry(this->geometry);
         }
     }
 
     void ContainerTree::switch_layout_policy()
     {
-        fmt::print("Switching layout policy to: ");
         if(policy == Layout::Horizontal) {
-            cx::println(" vertical");
             policy = Layout::Vertical;
             split_position.x = 0;
             split_position.y = geometry.height / 2;
         } else if(policy == Layout::Vertical) {
-            cx::println(" horizontal");
             policy = Layout::Horizontal;
             split_position.x = geometry.width / 2;
             split_position.y = 0;
@@ -182,8 +176,6 @@ namespace cx::workspace
     }
     void promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent)
     {
-        cx::println("Promotion of child");
-        auto grand_parent_geometry = parent->parent->geometry;
         if(parent->is_root()) {
             cx::println("Promoting child to ROOT parent not yet implemented");
         } else {
