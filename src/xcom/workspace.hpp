@@ -58,21 +58,26 @@ namespace cx::workspace
         /// Searches the ContainerTree in order, for a window with the id of xwin
         auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
         /// Traverses the ContainerTree for this workspace in order, and calls xcb_configure for each window with
-        /// the properties stored in each ws::Window.
+        /// the properties stored in each ws::Window, updating the display so that any and all changes made, will show up on screen
         auto display_update(xcb_connection_t* c) -> void;
-
         /// rotates the focused client tile-pair layouts
         void rotate_focus_layout() const;
         /// rotates the focused client tile-pair positions
         void rotate_focus_pair() const;
         // This moves this window from it's anchor, in vector's dir.
         void move_focused(cx::events::ScreenSpaceDirection dir);
-
+        /// Increases width or height of window, in all four directions, depending on the parameter arg
         void increase_size_focused(cx::events::ResizeArgument arg);
+        /// Decreases width or height of window, in all four directions, depending on the parameter arg
         [[maybe_unused]] void decrease_size_focused(cx::events::ResizeArgument arg);
+        void increase_size(cx::events::ResizeArgument);
         // Depending if sp_dir is negative or positive, determines what direction (left/right) the width will be increased to
         template<typename Predicate>
         void increase_width(int sp_dir, Predicate child_of);
+
+        template<typename Predicate>
+        void increase_height(int sp_dir, Predicate child_of);
+
 
         void focus_client(xcb_window_t xwin);
 

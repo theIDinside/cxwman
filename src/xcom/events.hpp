@@ -16,6 +16,7 @@ namespace cx::events
     struct ResizeArgument {
         ScreenSpaceDirection dir;
         cx::uint step{10};
+        /// Translates values into screen space, where down is -y
         [[nodiscard]] int get_value() const;
     };
 

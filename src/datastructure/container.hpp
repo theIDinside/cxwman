@@ -7,7 +7,6 @@
 
 namespace cx::workspace
 {
-
     /// This is a utility wrapper for iterating in a straight line upwards a tree
     template<typename TreeNode>
     struct BubbleIterator {
@@ -62,6 +61,8 @@ namespace cx::workspace
         [[nodiscard]] bool is_root() const;
         [[nodiscard]] bool is_split_container() const; // basically "is_branch?"
         [[nodiscard]] bool is_window() const;          // basically "is_leaf?"
+        /// This is a aesthetic utility function. Returns a pair of pointers, one to the current object and one to it's parent, so that
+        /// code blocks do not have to be cluttered up with setting pointers to the current and parent.
         [[nodiscard]] auto begin_bubble() -> BubbleIterator<ContainerTree>;
         [[nodiscard]] auto center_of_top() const -> geom::Position;
         [[nodiscard]] auto get_center() const -> geom::Position;

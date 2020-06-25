@@ -425,10 +425,10 @@ namespace cx
         event_dispatcher.register_action(KC{XK_Up, xkm::SUPER}, &Manager::move_focused, Arg{Dir::UP});
         event_dispatcher.register_action(KC{XK_Down, xkm::SUPER}, &Manager::move_focused, Arg{Dir::DOWN});
 
-        event_dispatcher.register_action(KC{XK_Left, xkm::SUPER_SHIFT}, &Manager::resize_focused, Arg{ResizeArg{Dir::LEFT, 10}});
-        event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::resize_focused, Arg{ResizeArg{Dir::RIGHT, 10}});
-        event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::resize_focused, Arg{ResizeArg{Dir::UP, 10}});
-        event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::resize_focused, Arg{ResizeArg{Dir::DOWN, 10}});
+        event_dispatcher.register_action(KC{XK_Left, xkm::SUPER_SHIFT}, &Manager::increase_size_focused, Arg{ResizeArg{Dir::LEFT, 10}});
+        event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::increase_size_focused, Arg{ResizeArg{Dir::RIGHT, 10}});
+        event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::increase_size_focused, Arg{ResizeArg{Dir::UP, 10}});
+        event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::increase_size_focused, Arg{ResizeArg{Dir::DOWN, 10}});
     }
 
     // Manager window/client actions
@@ -453,11 +453,15 @@ namespace cx
         focused_ws->move_focused(cmd_arg);
         focused_ws->display_update(get_conn());
     }
-    auto Manager::resize_focused(cx::events::EventArg arg) -> void
+    auto Manager::increase_size_focused(cx::events::EventArg arg) -> void
     {
-        using Dir = cx::events::ScreenSpaceDirection;
         auto resize_arg = std::get<cx::events::ResizeArgument>(arg.arg);
         focused_ws->increase_size_focused(resize_arg);
+        focused_ws->display_update(get_conn());
+    }
+    auto Manager::decrease_size_focused(cx::events::EventArg arg) -> void {
+        auto size_arg = std::get<cx::events::ResizeArgument>(arg.arg);
+        focused_ws->decrease_size_focused(size_arg);
         focused_ws->display_update(get_conn());
     }
 } // namespace cx
