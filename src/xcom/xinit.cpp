@@ -67,7 +67,8 @@ namespace cx::xinit
         namespace KM = xcb_key_masks;
         return make_array(mp(KM::SUPER_SHIFT, XK_F4), mp(KM::SUPER_SHIFT, XK_R), mp(KM::SUPER_SHIFT, XK_Left), mp(KM::SUPER_SHIFT, XK_Right),
                           mp(KM::SUPER_SHIFT, XK_Up), mp(KM::SUPER_SHIFT, XK_Down), mp(KM::SUPER, XK_Left), mp(KM::SUPER, XK_Right),
-                          mp(KM::SUPER, XK_Up), mp(KM::SUPER, XK_Down));
+                          mp(KM::SUPER, XK_Up), mp(KM::SUPER, XK_Down), mp(KM::SUPER_CTRL, XK_Left), mp(KM::SUPER_CTRL, XK_Right),
+                          mp(KM::SUPER_CTRL, XK_Up), mp(KM::SUPER_CTRL, XK_Down));
     }
 
     void setup_key_press_listening(XCBConn* conn, XCBWindow root)

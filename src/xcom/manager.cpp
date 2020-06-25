@@ -429,6 +429,11 @@ namespace cx
         event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_SHIFT}, &Manager::increase_size_focused, Arg{ResizeArg{Dir::RIGHT, 10}});
         event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_SHIFT}, &Manager::increase_size_focused, Arg{ResizeArg{Dir::UP, 10}});
         event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_SHIFT}, &Manager::increase_size_focused, Arg{ResizeArg{Dir::DOWN, 10}});
+
+        event_dispatcher.register_action(KC{XK_Left, xkm::SUPER_CTRL}, &Manager::decrease_size_focused, Arg{ResizeArg{Dir::RIGHT, 10}});
+        event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_CTRL}, &Manager::decrease_size_focused, Arg{ResizeArg{Dir::LEFT, 10}});
+        event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_CTRL}, &Manager::decrease_size_focused, Arg{ResizeArg{Dir::DOWN, 10}});
+        event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_CTRL}, &Manager::decrease_size_focused, Arg{ResizeArg{Dir::UP, 10}});
     }
 
     // Manager window/client actions

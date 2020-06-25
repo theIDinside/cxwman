@@ -78,6 +78,11 @@ namespace cx::workspace
         template<typename Predicate>
         void increase_height(int sp_dir, Predicate child_of);
 
+        template<typename Predicate>
+        void decrease_height(int sp_dir, Predicate child_of);
+
+        template<typename Predicate>
+        void decrease_width(int sp_dir, Predicate child_of);
 
         void focus_client(xcb_window_t xwin);
 

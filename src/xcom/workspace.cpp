@@ -163,6 +163,30 @@ namespace cx::workspace
             break;
         }
     }
+
+    void Workspace::decrease_size_focused(cx::events::ResizeArgument arg)
+    {
+        using Dir = cx::events::ScreenSpaceDirection;
+        using Vector = Pos; // To just illustrate further what Pos actually represents in this function
+        switch(arg.dir) {
+        case Dir::UP:
+            decrease_height(arg.get_value(),
+                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
+            break;
+        case Dir::DOWN:
+            decrease_height(arg.get_value(),
+                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
+            break;
+        case Dir::LEFT:
+            decrease_width(arg.get_value(),
+                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
+            break;
+        case Dir::RIGHT:
+            decrease_width(arg.get_value(),
+                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
+            break;
+        }
+    }
     /* TODO: Profile if this function, or the templated functions for width/height is better/faster. To profile it, we must call this function from
         increase_size_focused and just pass arg to this. */
     void Workspace::increase_size(cx::events::ResizeArgument arg)
@@ -241,9 +265,33 @@ namespace cx::workspace
         }
     }
 
-    [[maybe_unused]] void Workspace::decrease_size_focused(cx::events::ResizeArgument arg)
+    template<typename Predicate>
+    void Workspace::decrease_width(int steps, Predicate child_of)
     {
-        cx::println("Not yet implemented the decrease client function.");
+        auto found = false;
+        auto [child, parent] = focused().begin_bubble();
+        for(; !child->is_root() && !found; next_up(child, parent)) {
+            if(child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
+                found = true;
+                parent->split_position.x -= steps;
+                parent->update_subtree_geometry();
+            }
+        }
+    }
+
+    template<typename Predicate>
+    void Workspace::decrease_height(int steps, Predicate child_of)
+    {
+        auto found = false;
+        /// this would otherwise become:
+        /// auto child = foc_con; auto parent = foc_con->parent;
+        for(auto [child, parent] = focused().begin_bubble(); !child->is_root() && !found; next_up(child, parent)) {
+            if(child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
+                found = true;
+                parent->split_position.y -= steps;
+                parent->update_subtree_geometry();
+            }
+        }
     }
 
     void Workspace::focus_client(const xcb_window_t xwin)

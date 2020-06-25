@@ -18,8 +18,10 @@ namespace cx
 
     namespace xcb_key_masks
     {
+        constexpr auto CTRL = XCB_MOD_MASK_CONTROL;
         constexpr auto SUPER = XCB_MOD_MASK_4;
         constexpr auto SHIFT = XCB_MOD_MASK_SHIFT;
         constexpr auto SUPER_SHIFT = SUPER | SHIFT;
+        constexpr auto SUPER_CTRL  = SUPER | CTRL;
     }; // namespace xcb_key_masks
 };     // namespace cx
