@@ -40,12 +40,12 @@ namespace cx
         auto event_loop() -> void;
 
       private:
-        Manager(xinit::XCBConn* connection, xinit::XCBScreen* screen, xinit::XCBDrawable root_drawable, xinit::XCBWindow root_window,
-                xinit::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept;
+        Manager(x11::XCBConn* connection, x11::XCBScreen* screen, x11::XCBDrawable root_drawable, x11::XCBWindow root_window,
+                x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept;
 
-        [[nodiscard]] inline auto get_conn() const -> xinit::XCBConn*;
-        [[nodiscard]] inline auto get_root() const -> xinit::XCBWindow;
-        [[nodiscard]] inline auto get_screen() const -> xinit::XCBScreen*;
+        [[nodiscard]] inline auto get_conn() const -> x11::XCBConn*;
+        [[nodiscard]] inline auto get_root() const -> x11::XCBWindow;
+        [[nodiscard]] inline auto get_screen() const -> x11::XCBScreen*;
 
         // This is called after we have initialized the WM. The setup handles reframing of already existing windows
         // and also sets up the workspace(s)
@@ -74,7 +74,7 @@ namespace cx
         auto handle_key_press(xcb_key_press_event_t* event) -> void;
 
         // We assume that most windows were not mapped/created before our WM started
-        auto frame_window(xinit::XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false) -> void;
+        auto frame_window(x11::XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false) -> void;
         auto unframe_window(const ws::Window& w) -> void;
         auto configure_window_geometry(ws::Window w) -> void;
 
@@ -95,7 +95,7 @@ namespace cx
 
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.
-        xinit::XInternals x_detail;
+        x11::XInternals x_detail;
         bool m_running;
         std::map<xcb_window_t, xcb_window_t> client_to_frame_mapping;
         std::map<xcb_window_t, xcb_window_t> frame_to_client_mapping;

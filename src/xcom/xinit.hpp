@@ -18,7 +18,7 @@
 
 #define CXGRABMODE XCB_GRAB_MODE_ASYNC
 
-namespace cx::xinit
+namespace cx::x11
 {
 
     namespace debug
@@ -122,4 +122,4 @@ namespace cx::xinit
     auto get_client_wm_name(XCBConn* c, xcb_window_t window) -> std::optional<std::string>;
 
     auto get_font_gc(XCBConn* c, XCBScreen* screen, XCBWindow window, std::string_view font_name) -> std::optional<xcb_gcontext_t>;
-} // namespace cx::xinit
+} // namespace cx::x11

@@ -4,7 +4,7 @@
 #include <coreutils/core.hpp>
 #include <xcom/xinit.hpp>
 
-namespace cx::xinit
+namespace cx::x11
 {
 
     namespace debug
@@ -137,4 +137,4 @@ namespace cx::xinit
         }
         return std::make_optional(gfx_context);
     }
-} // namespace cx::xinit
+} // namespace cx::x11

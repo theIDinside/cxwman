@@ -44,8 +44,8 @@ namespace cx
     auto Manager::initialize() -> std::unique_ptr<Manager>
     {
         int screen_number;
-        xinit::XCBScreen* screen = nullptr;
-        xinit::XCBDrawable root_drawable;
+        x11::XCBScreen* screen = nullptr;
+        x11::XCBDrawable root_drawable;
         auto c = xcb_connect(nullptr, &screen_number);
         if(xcb_connection_has_error(c)) {
             throw std::runtime_error{"XCB Error: failed trying to connect to X-server"};
@@ -65,18 +65,18 @@ namespace cx
         }
 
         root_drawable = screen->root;
-        xinit::XCBWindow window = screen->root;
+        x11::XCBWindow window = screen->root;
 
         // Set this in pre-processor variable in CMake, to run this code
         DBGLOG("Screen size {} x {} pixels. Root window: {}", screen->width_in_pixels, screen->height_in_pixels, root_drawable);
-        xinit::setup_mouse_button_request_handling(c, window);
-        xinit::setup_redirection_of_map_requests(c, window);
-        xinit::setup_key_press_listening(c, window);
+        x11::setup_mouse_button_request_handling(c, window);
+        x11::setup_redirection_of_map_requests(c, window);
+        x11::setup_key_press_listening(c, window);
         // TODO: grab keys & set up keysymbols and configs
         auto ewmh_window = xcb_generate_id(c);
         xcb_create_window(c, XCB_COPY_FROM_PARENT, ewmh_window, window, -1, -1, 1, 1, 0, XCB_WINDOW_CLASS_INPUT_ONLY, XCB_COPY_FROM_PARENT,
                           XCB_CW_OVERRIDE_REDIRECT, (uint32_t[]){1});
-        auto atoms = cx::xinit::get_supported_atoms(c, xinit::atom_names);
+        auto atoms = cx::x11::get_supported_atoms(c, x11::atom_names);
 
         auto support_check_cookie = xcb_intern_atom(c, 0, name_len("_NET_SUPPORTING_WM_CHECK"), "_NET_SUPPORTING_WM_CHECK");
         auto wm_name_cookie = xcb_intern_atom(c, 0, name_len("_NET_WM_NAME"), "_NET_WM_NAME");
@@ -135,8 +135,8 @@ namespace cx
     }
 
     // Private constructor called via public interface function Manager::initialize()
-    Manager::Manager(xinit::XCBConn* connection, xinit::XCBScreen* screen, xinit::XCBDrawable root_drawable, xinit::XCBWindow root_window,
-                     xinit::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
+    Manager::Manager(x11::XCBConn* connection, x11::XCBScreen* screen, x11::XCBDrawable root_drawable, x11::XCBWindow root_window,
+                     x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
         : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
           m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{},
           focused_ws(nullptr), actions{}, m_workspaces{}, event_dispatcher{this}
@@ -148,11 +148,11 @@ namespace cx
         };
     }
 
-    [[nodiscard]] inline auto Manager::get_conn() const -> xinit::XCBConn* { return x_detail.c; }
+    [[nodiscard]] inline auto Manager::get_conn() const -> x11::XCBConn* { return x_detail.c; }
 
-    [[nodiscard]] inline auto Manager::get_root() const -> xinit::XCBWindow { return x_detail.screen->root; }
+    [[nodiscard]] inline auto Manager::get_root() const -> x11::XCBWindow { return x_detail.screen->root; }
 
-    [[nodiscard]] inline auto Manager::get_screen() const -> xinit::XCBScreen* { return x_detail.screen; }
+    [[nodiscard]] inline auto Manager::get_screen() const -> x11::XCBScreen* { return x_detail.screen; }
 
     // TODO(EWMHints): Grab EWM hints & set up supported hints
     auto Manager::handle_map_request(xcb_map_request_event_t* evt) -> void
@@ -261,7 +261,7 @@ namespace cx
     }
     // Fixme: Make sure client specific functionality isn't lost after re-parenting (such as client menu's should continue working)
     // Fixme: Does not showing client popup/dropdown menus have to do with not mapping their windows? (test basic_wm and see)
-    auto Manager::frame_window(xinit::XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
+    auto Manager::frame_window(x11::XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
     {
         std::array<xcb_void_cookie_t, 4> cookies{};
         constexpr auto border_width = 3;
@@ -296,7 +296,7 @@ namespace cx
                                                border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
 
         cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 0, 0);
-        auto tag = xinit::get_client_wm_name(get_conn(), window);
+        auto tag = x11::get_client_wm_name(get_conn(), window);
         ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id, ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
         cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
         cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
@@ -379,7 +379,7 @@ namespace cx
                 }
                 case XCB_BUTTON_PRESS: {
                     auto e = (xcb_button_press_event_t*)evt;
-                    focused_ws->focus_client(e->child);
+                    focused_ws->focus_client_with_xid(e->child);
                     break;
                 }
                 case XCB_BUTTON_RELEASE:
