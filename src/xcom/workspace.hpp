@@ -70,7 +70,6 @@ namespace cx::workspace
         void increase_size_focused(cx::events::ResizeArgument arg);
         /// Decreases width or height of window, in all four directions, depending on the parameter arg
         [[maybe_unused]] void decrease_size_focused(cx::events::ResizeArgument arg);
-        void increase_size(cx::events::ResizeArgument);
         // Depending if sp_dir is negative or positive, determines what direction (left/right) the width will be increased to
         template<typename Predicate>
         void increase_width(int sp_dir, Predicate child_of);
@@ -84,7 +83,7 @@ namespace cx::workspace
         template<typename Predicate>
         void decrease_width(int sp_dir, Predicate child_of);
 
-        void focus_client(xcb_window_t xwin);
+        void focus_client_with_xid(const xcb_window_t xwin);
 
         // This gets all clients as a vector of references (not the v/h split containers that is)
         template<typename P>

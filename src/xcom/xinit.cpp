@@ -115,4 +115,26 @@ namespace cx::xinit
             return {};
         }
     }
+    auto get_font_gc(XCBConn* c, XCBScreen* screen, XCBWindow window, std::string_view font_name) -> std::optional<xcb_gcontext_t> {
+        auto font = xcb_generate_id(c);
+        auto font_cookie = xcb_open_font_checked(c, font, font_name.length(), font_name.data());
+        if(auto err = xcb_request_check(c, font_cookie); err) {
+            cx::println("Could not open font. Error code: {}", err->error_code);
+            return {};
+        }
+        auto gfx_context = xcb_generate_id(c);
+        auto mask = XCB_GC_FOREGROUND | XCB_GC_BACKGROUND | XCB_GC_FONT;
+        uint32_t v_list[]{screen->black_pixel, screen->white_pixel, font};
+        auto gc_cookie = xcb_create_gc_checked(c, gfx_context, window, mask, v_list);
+        if(auto err = xcb_request_check(c, gc_cookie); err) {
+            cx::println("Could not create graphics context. Error code {}", err->error_code);
+            return {};
+        }
+        font_cookie = xcb_close_font_checked(c, font);
+        if(auto err = xcb_request_check(c, font_cookie); err) {
+            cx::println("Could not close font. Error code: {}", err->error_code);
+            return {};
+        }
+        return std::make_optional(gfx_context);
+    }
 } // namespace cx::xinit

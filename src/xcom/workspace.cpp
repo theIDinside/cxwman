@@ -170,69 +170,17 @@ namespace cx::workspace
         using Vector = Pos; // To just illustrate further what Pos actually represents in this function
         switch(arg.dir) {
         case Dir::UP:
-            decrease_height(arg.get_value(),
-                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
+            decrease_height(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
             break;
         case Dir::DOWN:
-            decrease_height(arg.get_value(),
-                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
+            decrease_height(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
             break;
         case Dir::LEFT:
-            decrease_width(arg.get_value(),
-                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
+            decrease_width(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
             break;
         case Dir::RIGHT:
-            decrease_width(arg.get_value(),
-                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
+            decrease_width(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
             break;
-        }
-    }
-    /* TODO: Profile if this function, or the templated functions for width/height is better/faster. To profile it, we must call this function from
-        increase_size_focused and just pass arg to this. */
-    void Workspace::increase_size(cx::events::ResizeArgument arg)
-    {
-        using Dir = cx::events::ScreenSpaceDirection;
-        auto found = false;
-        if(arg.dir == Dir::UP) {
-            auto [child, parent] = focused().begin_bubble();
-            for(; !child->is_root() && !found; next_up(child, parent)) {
-                if(parent->policy == Layout::Vertical &&
-                   parent->right.get() == child) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                    found = true;
-                    parent->split_position.y += arg.get_value();
-                    parent->update_subtree_geometry();
-                }
-            }
-        } else if(arg.dir == Dir::DOWN) {
-            auto [child, parent] = focused().begin_bubble();
-            for(; !child->is_root() && !found; next_up(child, parent)) {
-                if(parent->policy == Layout::Vertical &&
-                   parent->left.get() == child) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                    found = true;
-                    parent->split_position.y += arg.get_value();
-                    parent->update_subtree_geometry();
-                }
-            }
-        } else if(arg.dir == Dir::LEFT) {
-            auto [child, parent] = focused().begin_bubble();
-            for(; !child->is_root() && !found; next_up(child, parent)) {
-                if(parent->policy == Layout::Horizontal &&
-                   parent->right.get() == child) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                    found = true;
-                    parent->split_position.x += arg.get_value();
-                    parent->update_subtree_geometry();
-                }
-            }
-        } else {
-            auto [child, parent] = focused().begin_bubble();
-            for(; !child->is_root() && !found; next_up(child, parent)) {
-                if(parent->policy == Layout::Horizontal &&
-                   parent->left.get() == child) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                    found = true;
-                    parent->split_position.x += arg.get_value();
-                    parent->update_subtree_geometry();
-                }
-            }
         }
     }
 
@@ -249,7 +197,6 @@ namespace cx::workspace
             }
         }
     }
-
     template<typename Predicate>
     void Workspace::increase_height(int steps, Predicate child_of)
     {
@@ -264,7 +211,6 @@ namespace cx::workspace
             }
         }
     }
-
     template<typename Predicate>
     void Workspace::decrease_width(int steps, Predicate child_of)
     {
@@ -278,7 +224,6 @@ namespace cx::workspace
             }
         }
     }
-
     template<typename Predicate>
     void Workspace::decrease_height(int steps, Predicate child_of)
     {
@@ -294,7 +239,7 @@ namespace cx::workspace
         }
     }
 
-    void Workspace::focus_client(const xcb_window_t xwin)
+    void Workspace::focus_client_with_xid(const xcb_window_t xwin)
     {
         auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
             if(tree->is_window()) {

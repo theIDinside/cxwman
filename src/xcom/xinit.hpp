@@ -8,7 +8,9 @@
 #include <string_view>
 #include <xcb/xcb.h>
 #include <xcb/xcb_keysyms.h>
+#include <optional>
 #include <xcom/constants.hpp>
+
 
 // System X11
 #include <X11/keysym.h>
@@ -118,4 +120,6 @@ namespace cx::xinit
     }
 
     auto get_client_wm_name(XCBConn* c, xcb_window_t window) -> std::optional<std::string>;
+
+    auto get_font_gc(XCBConn* c, XCBScreen* screen, XCBWindow window, std::string_view font_name) -> std::optional<xcb_gcontext_t>;
 } // namespace cx::xinit

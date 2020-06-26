@@ -78,7 +78,7 @@ namespace cx::workspace
         friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>;
         // run MapFn on each item in the tree, that is of window "type"
         template<typename MapFn>
-        friend auto in_order_window_map(std::unique_ptr<ContainerTree>& tree, MapFn fn) -> void;
+        friend auto in_order_window_map(std::unique_ptr<ContainerTree>& tree_node, MapFn fn) -> void;
         friend void move_client(ContainerTree* from, ContainerTree* to);
         // Promote's child to parent. This function also calls update_subtree_geometry on promoted child so all it's children get proper
         // geometries
@@ -96,14 +96,14 @@ namespace cx::workspace
     std::unique_ptr<ContainerTree> make_tree(std::string ws_tag);
 
     template<typename MapFn>
-    auto in_order_window_map(std::unique_ptr<ContainerTree>& tree, MapFn fn) -> void
+    auto in_order_window_map(std::unique_ptr<ContainerTree>& tree_node, MapFn fn) -> void
     {
-        if(!tree)
+        if(!tree_node)
             return;
-        in_order_window_map(tree->left, fn);
-        if(tree->is_window())
-            fn(tree->client.value());
-        in_order_window_map(tree->right, fn);
+        in_order_window_map(tree_node->left, fn);
+        if(tree_node->is_window())
+            fn(*(tree_node->client));
+        in_order_window_map(tree_node->right, fn);
     }
 
     template<typename Predicate>
