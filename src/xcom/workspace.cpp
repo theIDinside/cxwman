@@ -170,16 +170,20 @@ namespace cx::workspace
         using Vector = Pos; // To just illustrate further what Pos actually represents in this function
         switch(arg.dir) {
         case Dir::UP:
-            decrease_height(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
+            decrease_height(arg.get_value(),
+                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
             break;
         case Dir::DOWN:
-            decrease_height(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
+            decrease_height(arg.get_value(),
+                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
             break;
         case Dir::LEFT:
-            decrease_width(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
+            decrease_width(arg.get_value(),
+                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
             break;
         case Dir::RIGHT:
-            decrease_width(arg.get_value(),[](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
+            decrease_width(arg.get_value(),
+                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
             break;
         }
     }
@@ -250,7 +254,7 @@ namespace cx::workspace
         if(c) {
             auto client = c.value()->client.value();
             DBGLOG("Focused client: [Frame: {}, Client: {}] @ (x:{},y:{}) (w:{} x h:{})", client.frame_id, client.client_id, client.geometry.x(),
-                   client.geometry.y(), client.geometry.width, client.geometry.height);
+                client.geometry.y(), client.geometry.width, client.geometry.height);
             foc_con = *c;
         } else {
             cx::println("Could not find managed window with id {}", xwin);

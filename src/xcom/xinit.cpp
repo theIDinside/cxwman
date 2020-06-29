@@ -46,13 +46,14 @@ namespace cx::x11
     }
     void setup_mouse_button_request_handling(XCBConn* conn, XCBWindow window)
     {
+        namespace xkm = xcb_key_masks;
         auto mouse_button = 1; // left mouse button, 2 middle, 3 right, MouseModMask is alt + mouse click
 
         auto PRESS_AND_RELEASE_MASK = (cx::u32)XCB_EVENT_MASK_BUTTON_PRESS | (cx::u32)XCB_EVENT_MASK_BUTTON_RELEASE |
                                       (cx::u32)XCB_EVENT_MASK_ENTER_WINDOW | (cx::u32)XCB_EVENT_MASK_LEAVE_WINDOW;
         while(mouse_button < 4) {
             auto ck = xcb_grab_button_checked(conn, 0, window, PRESS_AND_RELEASE_MASK, CXGRABMODE, CXGRABMODE, window, XCB_NONE, mouse_button,
-                                              XCB_MOD_MASK_ANY);
+                                              xkm::SUPER_SHIFT);
             if(auto err = xcb_request_check(conn, ck); err) {
                 cx::println("Could not set up handling of mouse button clicks for button {}", mouse_button);
             }

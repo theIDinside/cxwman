@@ -38,9 +38,6 @@ namespace cx
         this->focused_ws = m_workspaces[0].get();
     }
 
-    // Fixme: Currently pressing on client menus and specific buttons doesn't work. This has got to have to be because we set some flags
-    // wrong, (or possibly not at all). Perhaps look to i3 for help?
-
     auto Manager::initialize() -> std::unique_ptr<Manager>
     {
         int screen_number;
@@ -69,7 +66,8 @@ namespace cx
 
         // Set this in pre-processor variable in CMake, to run this code
         DBGLOG("Screen size {} x {} pixels. Root window: {}", screen->width_in_pixels, screen->height_in_pixels, root_drawable);
-        x11::setup_mouse_button_request_handling(c, window);
+        // TODO: remove this call to setup_mouse... completely for root?
+        // x11::setup_mouse_button_request_handling(c, window);
         x11::setup_redirection_of_map_requests(c, window);
         x11::setup_key_press_listening(c, window);
         // TODO: grab keys & set up keysymbols and configs
@@ -257,10 +255,11 @@ namespace cx
         // "Safe" event handler. Calls Manager::noop() if key-combo is not registered with a specific member function of Manager
         event_dispatcher.handle(cfg);
     }
-    // Fixme: Make sure client specific functionality isn't lost after re-parenting (such as client menu's should continue working)
-    // Fixme: Does not showing client popup/dropdown menus have to do with not mapping their windows? (test basic_wm and see)
+
     auto Manager::frame_window(x11::XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
     {
+        namespace xkm = xcb_key_masks;
+
         std::array<xcb_void_cookie_t, 4> cookies{};
         constexpr auto border_width = 2;
         constexpr auto border_color = 0xff12ab;
@@ -287,12 +286,18 @@ namespace cx
         uint32_t mask = XCB_CW_BORDER_PIXEL;
         values[0] = border_color;
         mask |= XCB_CW_EVENT_MASK;
-        // FIXME(Client menus): Should work, but currently doesn't. Perhaps some flag wrong set, or not set at all?
-        values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT |
-                    XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
+        values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY |
+                    XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
 
         cookies[0] = xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
                                                border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
+        auto rep = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE,
+                                           XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
+        if(auto e = xcb_request_check(get_conn(), rep); e) {
+            cx::println("Failed button grab on window {}", window);
+        } else {
+            cx::println("Succeeded in grabbing button on window {}", window);
+        }
         auto co = xcb_configure_window_checked(get_conn(), window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, (uint32_t[]){10, 10});
         if(auto err2 = xcb_request_check(get_conn(), co); err2) {
             cx::println("Failed to set dimensions of new window");
@@ -374,16 +379,22 @@ namespace cx
                     handle_map_request((xcb_map_request_event_t*)(evt));
                     break;
                 }
+                case XCB_MAP_NOTIFY: {
+                    cx::println("Map notify caught");
+                    break;
+                }
                 case XCB_UNMAP_NOTIFY:
                     handle_unmap_request((xcb_unmap_window_request_t*)evt);
                     break;
                 case XCB_CONFIGURE_REQUEST: {
+                    cx::println("Configure request caught");
                     handle_config_request((xcb_configure_request_event_t*)evt);
                     break;
                 }
                 case XCB_BUTTON_PRESS: {
+                    cx::println("Button press caught");
                     auto e = (xcb_button_press_event_t*)evt;
-                    focused_ws->focus_client_with_xid(e->child);
+                    focused_ws->focus_client_with_xid(e->event);
                     break;
                 }
                 case XCB_BUTTON_RELEASE:
@@ -392,12 +403,21 @@ namespace cx
                     handle_key_press((xcb_key_press_event_t*)evt);
                     break;
                 }
-                case XCB_MAPPING_NOTIFY:   // alerts us if a *key mapping* has been done, NOT a window one
-                case XCB_MOTION_NOTIFY:    // We just fall through all these for now, since we don't do anything right now anyway
-                case XCB_CLIENT_MESSAGE:   // TODO(implement) XCB_CLIENT_MESSAGE:
+                case XCB_MAPPING_NOTIFY: // alerts us if a *key mapping* has been done, NOT a window one
+                    cx::println("Mappting notify caught");
+                    break;
+                case XCB_MOTION_NOTIFY: // We just fall through all these for now, since we don't do anything right now anyway
+                    cx::println("Motion notify caught");
+                    break;
+                case XCB_CLIENT_MESSAGE: // TODO(implement) XCB_CLIENT_MESSAGE:
+                    cx::println("Client message caught");
                 case XCB_CONFIGURE_NOTIFY: // TODO(implement) XCB_CONFIGURE_NOTIFY
-                case XCB_KEY_RELEASE:      // TODO(implement)? XCB_KEY_RELEASE
+                    cx::println("Configure notify caught");
+                    break;
+                case XCB_KEY_RELEASE: // TODO(implement)? XCB_KEY_RELEASE
+                    cx::println("Key release caught");
                 case XCB_EXPOSE:
+                    cx::println("Expose caught");
                     break; // TODO(implement) XCB_EXPOSE
                 }
             }
