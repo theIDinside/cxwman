@@ -157,8 +157,6 @@ namespace cx
     // TODO(EWMHints): Grab EWM hints & set up supported hints
     auto Manager::handle_map_request(xcb_map_request_event_t* evt) -> void
     {
-        local_persist int map_requests{};
-        // DBGLOG("Handling map request of window with id {}. #{}", evt->window, map_requests++);
         frame_window(evt->window);
         xcb_map_window(get_conn(), evt->window);
     }
@@ -264,7 +262,7 @@ namespace cx
     auto Manager::frame_window(x11::XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
     {
         std::array<xcb_void_cookie_t, 4> cookies{};
-        constexpr auto border_width = 3;
+        constexpr auto border_width = 2;
         constexpr auto border_color = 0xff12ab;
         constexpr auto bg_color = 0x010101;
 
@@ -275,6 +273,7 @@ namespace cx
 
         auto win_attr = xcb_get_window_attributes_reply(get_conn(), xcb_get_window_attributes(get_conn(), window), nullptr);
         auto client_geometry = process_x_geometry(xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), window), nullptr));
+        DBGLOG("Client geometry: {},{} -- {}x{}", client_geometry->x(), client_geometry->y(), client_geometry->width, client_geometry->height);
         if(created_before_wm) {
             cx::println("Window was created before WM.");
             if(win_attr->override_redirect || win_attr->map_state != XCB_MAP_STATE_VIEWABLE)
@@ -294,10 +293,14 @@ namespace cx
 
         cookies[0] = xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
                                                border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
-
-        cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 0, 0);
+        auto co = xcb_configure_window_checked(get_conn(), window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, (uint32_t[]){10, 10});
+        if(auto err2 = xcb_request_check(get_conn(), co); err2) {
+            cx::println("Failed to set dimensions of new window");
+        }
+        cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 1, 1);
         auto tag = x11::get_client_wm_name(get_conn(), window);
-        ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id, ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
+        ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id,
+                       ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
         cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
         cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
 
@@ -305,6 +308,7 @@ namespace cx
         process_request(cookies[1], win, [](auto w) { cx::println("Re-parenting window {} to frame {} failed", w.client_id, w.frame_id); });
         process_request(cookies[2], win, [](auto w) { cx::println("Failed to map frame {}", w.frame_id); });
         process_request(cookies[3], win, [](auto w) { cx::println("Failed to map sub-windows of frame {} -> {}", w.frame_id, w.client_id); });
+
         if(!focused_ws) {
             DBGLOG("No workspace container was created. {}!", "Error");
         }
@@ -467,7 +471,7 @@ namespace cx
     {
         if(reply) {
             auto res = geom::Geometry{static_cast<geom::GU>(reply->x), static_cast<geom::GU>(reply->y), static_cast<geom::GU>(reply->width),
-                                  static_cast<geom::GU>(reply->height)};
+                                      static_cast<geom::GU>(reply->height)};
             delete reply;
             return res;
         } else {
