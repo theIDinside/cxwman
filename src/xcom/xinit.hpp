@@ -120,6 +120,6 @@ namespace cx::x11
     }
 
     auto get_client_wm_name(XCBConn* c, xcb_window_t window) -> std::optional<std::string>;
-
-    auto get_font_gc(XCBConn* c, XCBScreen* screen, XCBWindow window, std::string_view font_name) -> std::optional<xcb_gcontext_t>;
+    // NOTE: On linux type xlsfonts to list X font names, that can be used as font_name
+    auto get_font_gc(XCBConn* c, XCBScreen* screen, XCBWindow window, uint fg_color, uint  bg_color, std::string_view font_name) -> std::optional<xcb_gcontext_t>;
 } // namespace cx::x11

@@ -83,7 +83,7 @@ namespace cx::workspace
         template<typename Predicate>
         void decrease_width(int sp_dir, Predicate child_of);
 
-        void focus_client_with_xid(const xcb_window_t xwin);
+        bool focus_client_with_xid(const xcb_window_t xwin);
 
         // This gets all clients as a vector of references (not the v/h split containers that is)
         template<typename P>

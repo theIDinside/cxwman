@@ -18,6 +18,7 @@
 #include <xcom/utility/config.hpp>
 #include <xcom/workspace.hpp>
 #include <xcom/xinit.hpp>
+#include <xcom/status_bar.hpp>
 
 namespace cx
 {
@@ -59,11 +60,12 @@ namespace cx
         }
 
         template<typename XCBCookieType, typename ErrHandler>
-        auto process_request(XCBCookieType cookie, ws::Window w, ErrHandler fn)
+        auto process_request(XCBCookieType cookie, ws::Window w, ErrHandler fn, bool abort_on_error=true)
         {
             if(auto err = xcb_request_check(x_detail.c, cookie); err) {
                 fn(w);
                 delete err;
+                if(abort_on_error) std::abort();
             }
         }
 
@@ -99,9 +101,9 @@ namespace cx
         bool m_running;
         std::map<xcb_window_t, xcb_window_t> client_to_frame_mapping;
         std::map<xcb_window_t, xcb_window_t> frame_to_client_mapping;
-        std::map<std::size_t, std::function<auto()->void>> actions;
         ws::Workspace* focused_ws;
         std::vector<std::unique_ptr<ws::Workspace>> m_workspaces;
+        std::unique_ptr<ws::StatusBar> status_bar;
         // TODO: Use/Not use a map of std::functions as keybindings?
         template<typename Receiver>
         struct KeyEventHandler {

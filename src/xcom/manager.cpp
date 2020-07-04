@@ -26,15 +26,17 @@ namespace cx
     auto Manager::setup() -> void
     {
         // TODO(implement): grab pre-existing windows, reparent them properly and manage them
-        xcb_grab_server(get_conn());
+        // xcb_grab_server(get_conn());
         setup_root_workspace_container();
-        xcb_ungrab_server(get_conn());
+
+        // xcb_ungrab_server(get_conn());
     }
 
     auto Manager::setup_root_workspace_container() -> void
     {
         // auto win_geom = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), get_root()), nullptr);
         add_workspace("Workspace 1", 0);
+        this->status_bar = ws::make_system_bar(get_conn(), get_screen(), 5, geom::Geometry{0, 0, 800, 25});
         this->focused_ws = m_workspaces[0].get();
     }
 
@@ -67,7 +69,7 @@ namespace cx
         // Set this in pre-processor variable in CMake, to run this code
         DBGLOG("Screen size {} x {} pixels. Root window: {}", screen->width_in_pixels, screen->height_in_pixels, root_drawable);
         // TODO: remove this call to setup_mouse... completely for root?
-        // x11::setup_mouse_button_request_handling(c, window);
+        x11::setup_mouse_button_request_handling(c, window);
         x11::setup_redirection_of_map_requests(c, window);
         x11::setup_key_press_listening(c, window);
         // TODO: grab keys & set up keysymbols and configs
@@ -137,13 +139,9 @@ namespace cx
                      x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
         : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
           m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{},
-          focused_ws(nullptr), actions{}, m_workspaces{}, event_dispatcher{this}
+          focused_ws(nullptr), m_workspaces{}, event_dispatcher{this}, status_bar{nullptr}
     {
-        // TODO: Set up key-combo-configurations with bindings like this? Or unnecessarily complex?
-        actions[27] = [this]() {
-            this->focused_ws->rotate_focus_pair();
-            this->focused_ws->display_update(get_conn());
-        };
+
     }
 
     [[nodiscard]] inline auto Manager::get_conn() const -> x11::XCBConn* { return x_detail.c; }
@@ -260,7 +258,7 @@ namespace cx
     {
         namespace xkm = xcb_key_masks;
 
-        std::array<xcb_void_cookie_t, 4> cookies{};
+        std::array<xcb_void_cookie_t, 5> cookies{};
         constexpr auto border_width = 2;
         constexpr auto border_color = 0xff12ab;
         constexpr auto bg_color = 0x010101;
@@ -291,28 +289,22 @@ namespace cx
 
         cookies[0] = xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
                                                border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
-        auto rep = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE,
-                                           XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
-        if(auto e = xcb_request_check(get_conn(), rep); e) {
-            cx::println("Failed button grab on window {}", window);
-        } else {
-            cx::println("Succeeded in grabbing button on window {}", window);
-        }
-        auto co = xcb_configure_window_checked(get_conn(), window, XCB_CONFIG_WINDOW_WIDTH | XCB_CONFIG_WINDOW_HEIGHT, (uint32_t[]){10, 10});
-        if(auto err2 = xcb_request_check(get_conn(), co); err2) {
-            cx::println("Failed to set dimensions of new window");
-        }
+
+
         cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 1, 1);
         auto tag = x11::get_client_wm_name(get_conn(), window);
         ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id,
                        ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
         cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
         cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
+        cookies[4] = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE,
+                                             XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
 
         process_request(cookies[0], win, [](auto w) { cx::println("Failed to create X window/frame"); });
         process_request(cookies[1], win, [](auto w) { cx::println("Re-parenting window {} to frame {} failed", w.client_id, w.frame_id); });
         process_request(cookies[2], win, [](auto w) { cx::println("Failed to map frame {}", w.frame_id); });
         process_request(cookies[3], win, [](auto w) { cx::println("Failed to map sub-windows of frame {} -> {}", w.frame_id, w.client_id); });
+        process_request(cookies[4], win, [](auto w) { cx::println("Failed button grab on window {}", w.client_id); });
 
         if(!focused_ws) {
             DBGLOG("No workspace container was created. {}!", "Error");
@@ -332,6 +324,7 @@ namespace cx
         }
         client_to_frame_mapping[window] = frame_id;
         frame_to_client_mapping[frame_id] = window;
+        x11::setup_mouse_button_request_handling(get_conn(), window);
         delete win_attr;
     }
 
@@ -394,30 +387,45 @@ namespace cx
                 case XCB_BUTTON_PRESS: {
                     cx::println("Button press caught");
                     auto e = (xcb_button_press_event_t*)evt;
-                    focused_ws->focus_client_with_xid(e->event);
+                    if(e->event == this->x_detail.root_window) {
+                        if(!focused_ws->focus_client_with_xid(e->child)) { // if this returns false, no window was focused. No reason to do else branch
+                            if(auto ws_id = status_bar->clicked_workspace(e->child); ws_id) {
+                                cx::println("TODO: Change workspace feature not yet implemented");
+                            }
+                        }
+                    } else {
+                        if(!focused_ws->focus_client_with_xid(e->event)) {
+                            if(!focused_ws->focus_client_with_xid(e->event)) { // if this returns false, no window was focused. No reason to do else branch
+                                if(auto ws_id = status_bar->clicked_workspace(e->event); ws_id) {
+                                    cx::println("TODO: Change workspace feature not yet implemented");
+                                }
+                            }
+                        }
+                    }
                     break;
                 }
                 case XCB_BUTTON_RELEASE:
                     break;
-                case XCB_KEY_PRESS: {
+                case XCB_KEY_PRESS:
                     handle_key_press((xcb_key_press_event_t*)evt);
                     break;
-                }
                 case XCB_MAPPING_NOTIFY: // alerts us if a *key mapping* has been done, NOT a window one
-                    cx::println("Mappting notify caught");
                     break;
                 case XCB_MOTION_NOTIFY: // We just fall through all these for now, since we don't do anything right now anyway
-                    cx::println("Motion notify caught");
                     break;
                 case XCB_CLIENT_MESSAGE: // TODO(implement) XCB_CLIENT_MESSAGE:
-                    cx::println("Client message caught");
+                    break;
                 case XCB_CONFIGURE_NOTIFY: // TODO(implement) XCB_CONFIGURE_NOTIFY
-                    cx::println("Configure notify caught");
                     break;
                 case XCB_KEY_RELEASE: // TODO(implement)? XCB_KEY_RELEASE
-                    cx::println("Key release caught");
+                    break;
                 case XCB_EXPOSE:
+                    auto e = (xcb_expose_event_t*)evt;
                     cx::println("Expose caught");
+                    if(status_bar->has_child(e->window)) {
+                        cx::println("Expose event for Statusbar item caught");
+                        status_bar->draw();
+                    }
                     break; // TODO(implement) XCB_EXPOSE
                 }
             }
@@ -425,7 +433,8 @@ namespace cx
     }
     auto Manager::add_workspace(const std::string& workspace_tag, std::size_t screen_number) -> void
     {
-        m_workspaces.emplace_back(std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, 0, 800, 600}));
+        auto status_bar_height = 25;
+        m_workspaces.emplace_back(std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, status_bar_height, 800, 600 - status_bar_height}));
     }
     auto Manager::setup_input_functions() -> void
     {

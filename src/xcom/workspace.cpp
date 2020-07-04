@@ -243,7 +243,7 @@ namespace cx::workspace
         }
     }
 
-    void Workspace::focus_client_with_xid(const xcb_window_t xwin)
+    bool Workspace::focus_client_with_xid(const xcb_window_t xwin)
     {
         auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
             if(tree->is_window()) {
@@ -256,8 +256,9 @@ namespace cx::workspace
             DBGLOG("Focused client: [Frame: {}, Client: {}] @ (x:{},y:{}) (w:{} x h:{})", client.frame_id, client.client_id, client.geometry.x(),
                 client.geometry.y(), client.geometry.width, client.geometry.height);
             foc_con = *c;
+            return true;
         } else {
-            cx::println("Could not find managed window with id {}", xwin);
+            return false;
         }
     }
 

@@ -49,6 +49,10 @@ target_link_libraries(window_evt_gfx xcb)
 add_executable(xcb_glx tests/xcb_glx.cpp)
 target_link_libraries(xcb_glx xcb GL X11 X11-xcb)
 
+add_executable(window_with_button tests/window_with_button.cpp)
+target_link_libraries(window_with_button xcb GL X11 X11-xcb)
+
+
 message("What build type is CLION setting it to, one might wonder?")
 if (CMAKE_BUILD_TYPE STREQUAL Release)
     message("Build type is ${CMAKE_BUILD_TYPE}. Copying assets to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE}")

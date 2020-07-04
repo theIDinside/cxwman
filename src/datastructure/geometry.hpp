@@ -34,7 +34,8 @@ namespace cx::geom
 
         [[nodiscard]] constexpr inline GU y() const { return pos.y; }
         [[nodiscard]] constexpr inline GU x() const { return pos.x; }
-        constexpr inline auto xcb_value_list() -> std::array<GU, 4> { return {pos.x, pos.y, width, height}; }
+        /// Returns geometry values used by the X server. Utility function, so we can use structured bindings like so: auto& [x,y,w,h] = xcb_value_list()
+        [[nodiscard]] constexpr inline auto xcb_value_list() const -> std::array<GU, 4> { return {pos.x, pos.y, width, height}; }
 
         static Geometry default_new() { return Geometry{0, 0, 800, 600}; }
         static Geometry window_default() { return Geometry{0, 0, 400, 400}; }
