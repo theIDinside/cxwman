@@ -59,4 +59,4 @@ There could be better solutions and designs here, but for now, this is what I go
 
 
 #### Screenshot of current basic functionalities
-[Tiled windows and extremely rudimentary status bar](misc/basic_functionality_and_look.png)
+![Tiled windows and extremely rudimentary status bar](misc/basic_functionality_and_look.png)
