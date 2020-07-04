@@ -56,3 +56,7 @@ There are so many things that are totally hack-n-slash right now as far as the d
 and running, and frankly, I don't know any better as of right now.
 
 There could be better solutions and designs here, but for now, this is what I got. 
+
+
+#### Screenshot of current basic functionalities
+[Tiled windows and extremely rudimentary status bar](misc/basic_functionality_and_look.png)
