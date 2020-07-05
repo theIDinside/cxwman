@@ -36,7 +36,14 @@ namespace cx
     {
         // auto win_geom = xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), get_root()), nullptr);
         add_workspace("Workspace 1", 0);
-        this->status_bar = ws::make_system_bar(get_conn(), get_screen(), 5, geom::Geometry{0, 0, 800, 25});
+        add_workspace("Workspace 2", 0);
+        add_workspace("Workspace 3", 0);
+        add_workspace("Workspace 4", 0);
+        add_workspace("Workspace 5", 0);
+        add_workspace("Workspace 6", 0);
+        add_workspace("Workspace 7", 0);
+        add_workspace("Workspace 8", 0);
+        this->status_bar = ws::make_system_bar(get_conn(), get_screen(), m_workspaces.size(), geom::Geometry{0, 0, 800, 25});
         this->focused_ws = m_workspaces[0].get();
     }
 
@@ -141,7 +148,6 @@ namespace cx
           m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{},
           focused_ws(nullptr), m_workspaces{}, event_dispatcher{this}, status_bar{nullptr}
     {
-
     }
 
     [[nodiscard]] inline auto Manager::get_conn() const -> x11::XCBConn* { return x_detail.c; }
@@ -284,12 +290,11 @@ namespace cx
         uint32_t mask = XCB_CW_BORDER_PIXEL;
         values[0] = border_color;
         mask |= XCB_CW_EVENT_MASK;
-        values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY |
-                    XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
+        values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS |
+                    XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
 
         cookies[0] = xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
                                                border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
-
 
         cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 1, 1);
         auto tag = x11::get_client_wm_name(get_conn(), window);
@@ -388,18 +393,18 @@ namespace cx
                     cx::println("Button press caught");
                     auto e = (xcb_button_press_event_t*)evt;
                     if(e->event == this->x_detail.root_window) {
-                        if(!focused_ws->focus_client_with_xid(e->child)) { // if this returns false, no window was focused. No reason to do else branch
-                            if(auto ws_id = status_bar->clicked_workspace(e->child); ws_id) {
-                                cx::println("TODO: Change workspace feature not yet implemented");
-                            }
+                        if(!focused_ws->focus_client_with_xid(e->child)) {
+                            // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
+                            status_bar->clicked_workspace(e->child, [this](auto workspace_id) {
+                                this->change_workspace(workspace_id);
+                            });
                         }
                     } else {
                         if(!focused_ws->focus_client_with_xid(e->event)) {
-                            if(!focused_ws->focus_client_with_xid(e->event)) { // if this returns false, no window was focused. No reason to do else branch
-                                if(auto ws_id = status_bar->clicked_workspace(e->event); ws_id) {
-                                    cx::println("TODO: Change workspace feature not yet implemented");
-                                }
-                            }
+                            // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
+                            status_bar->clicked_workspace(e->event, [this](auto workspace_id) {
+                                this->change_workspace(workspace_id);
+                            });
                         }
                     }
                     break;
@@ -421,7 +426,6 @@ namespace cx
                     break;
                 case XCB_EXPOSE:
                     auto e = (xcb_expose_event_t*)evt;
-                    cx::println("Expose caught");
                     if(status_bar->has_child(e->window)) {
                         cx::println("Expose event for Statusbar item caught");
                         status_bar->draw();
@@ -434,7 +438,8 @@ namespace cx
     auto Manager::add_workspace(const std::string& workspace_tag, std::size_t screen_number) -> void
     {
         auto status_bar_height = 25;
-        m_workspaces.emplace_back(std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, status_bar_height, 800, 600 - status_bar_height}));
+        m_workspaces.emplace_back(
+            std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, status_bar_height, 800, 600 - status_bar_height}));
     }
     auto Manager::setup_input_functions() -> void
     {
@@ -496,6 +501,28 @@ namespace cx
         focused_ws->decrease_size_focused(size_arg);
         focused_ws->display_update(get_conn());
     }
+    auto Manager::change_workspace(std::size_t ws_id) -> void
+    {
+        if(ws_id < m_workspaces.size()) {
+            auto c = get_conn();
+            focused_ws->unmap_workspace([&c](xcb_window_t window) {
+                auto cookie = xcb_unmap_window(c, window);
+                if(auto err = xcb_request_check(c, cookie); err) {
+                    cx::println("Failed to unmap window {}. Error code: {}", window, err->error_code);
+                }
+            });
+            focused_ws = m_workspaces[ws_id].get();
+            focused_ws->map_workspace([&c](xcb_window_t window) {
+                auto cookie = xcb_map_window_checked(c, window);
+                if(auto err = xcb_request_check(c, cookie); err) {
+                    cx::println("Failed to map window {}. Error code: {}", window, err->error_code);
+                }
+            });
+
+        } else {
+            cx::println("There is no workspace with id {}", ws_id);
+        }
+    }
     auto process_x_geometry(xcb_get_geometry_reply_t* reply) -> std::optional<geom::Geometry>
     {
         if(reply) {
@@ -507,4 +534,5 @@ namespace cx
             return {};
         }
     }
+    void unmap(const ws::Window& w, xcb_connection_t* c) {}
 } // namespace cx

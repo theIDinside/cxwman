@@ -29,6 +29,7 @@ namespace cx
     /// This also free's the memory pointed to by reply
     auto process_x_geometry(xcb_get_geometry_reply_t* reply) -> std::optional<geom::Geometry>;
 
+    void unmap(const ws::Window& w, xcb_connection_t* c);
     constexpr auto MouseModMask = XCB_MOD_MASK_1;
     class Manager
     {
@@ -94,6 +95,8 @@ namespace cx
         auto move_focused(cx::events::EventArg arg) -> void;
         auto increase_size_focused(cx::events::EventArg arg) -> void;
         auto decrease_size_focused(cx::events::EventArg arg) -> void;
+
+        auto change_workspace(std::size_t ws_id) -> void;
 
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.

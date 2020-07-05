@@ -38,6 +38,7 @@ namespace cx
 #define LOG(message, ...) cx::println(message, __VA_ARGS__)
 #define NOLOG()
 
+/// Utility "debug print/log". This is so we can later swap it out with logging to file or arbitrary std output
 #ifdef DEBUGGING
 #    define DBGLOG(message, ...) LOG(message, __VA_ARGS__)
 #else

@@ -90,5 +90,21 @@ namespace cx::workspace
         [[maybe_unused]] std::vector<ContainerTree*> get_clients(P p = is_window_predicate);
 
         void anchor_new_root(TreeOwned new_root, const std::string& tag);
+
+        template <typename XCBUnMapFn>
+        void unmap_workspace(XCBUnMapFn fn)  {
+            in_order_window_map(m_root, [fn](auto window) {
+              DBGLOG("Unmapping window {}", "");
+                fn(window.frame_id);
+            });
+        }
+
+        template <typename XCBMapFn>
+        void map_workspace(XCBMapFn fn)  {
+            in_order_window_map(m_root, [fn](auto window) {
+              DBGLOG("Mapping window {}", "");
+              fn(window.frame_id);
+            });
+        }
     };
 } // namespace cx::workspace

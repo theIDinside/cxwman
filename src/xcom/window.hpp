@@ -30,5 +30,7 @@ namespace cx::workspace
         Tag m_tag;
 
         void set_geometry(geom::Geometry g) noexcept;
+
+        friend void unmap(const Window& w, xcb_connection_t* c);
     };
 }; // namespace cx::workspace

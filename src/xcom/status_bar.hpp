@@ -24,6 +24,11 @@ namespace cx::workspace
         xcb_gcontext_t draw_props;
         WorkspaceBox(cx::uint ws_id, xcb_drawable_t xid, geom::Geometry geometry);
         void draw(xcb_connection_t* c);
+
+        template <typename Cb>
+        auto signal(Cb cb) {
+            cb(workspace_id);
+        }
     };
 
     class StatusBar
@@ -48,7 +53,31 @@ namespace cx::workspace
         void update();
         void add_workspace();
         bool has_child(xcb_window_t window);
-        std::optional<int> clicked_workspace(xcb_window_t item);
+
+        template <typename CallBack>
+        void clicked_workspace(xcb_window_t item, CallBack cb) {
+            if(this->items.count(item) && item != active_workspace_button) {
+                std::array<xcb_void_cookie_t, 4> cookies{};
+                items[item]->draw_props = gc_active;
+                items[active_workspace_button]->draw_props = gc_inactive;
+
+                auto bg_mask = XCB_CW_BACK_PIXEL;
+                auto color = 0x00ff00;
+
+                cookies[0] = xcb_change_window_attributes_checked(c, item, bg_mask, (int[]){color});
+                cookies[1] = xcb_clear_area_checked(c, 1, item, 0, 0, 30, 30);
+                cookies[2] = xcb_change_window_attributes_checked(c, active_workspace_button, bg_mask, (int[]){0x0000ff});
+                cookies[3] = xcb_clear_area_checked(c, 1, active_workspace_button, 0, 0, 30, 30);
+
+                for(const auto& cookie : cookies) {
+                    if(auto err = xcb_request_check(c, cookie); err) {
+                        cx::println("Failed to change attributes of window. Error code: {}", err->error_code);
+                    }
+                }
+                active_workspace_button = item;
+                cb(items[item]->workspace_id);
+            }
+        }
     };
     using SysBar = std::unique_ptr<StatusBar>;
     using WBox = std::unique_ptr<WorkspaceBox>;

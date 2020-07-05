@@ -33,32 +33,6 @@ namespace cx::workspace
         return items.count(window) > 0;
     }
 
-    std::optional<int> StatusBar::clicked_workspace(xcb_window_t item) {
-        std::vector<xcb_void_cookie_t> cookies{};
-        if(this->items.count(item) && item != active_workspace_button) {
-            items[item]->draw_props = gc_active;
-            items[active_workspace_button]->draw_props = gc_inactive;
-
-            auto bg_mask = XCB_CW_BACK_PIXEL;
-            auto color = 0x00ff00;
-
-            cookies.push_back(xcb_change_window_attributes_checked(c, item, bg_mask, (int[]){color}));
-            cookies.push_back(xcb_clear_area_checked(c, 1, item, 0, 0, 30, 30));
-            cookies.push_back(xcb_change_window_attributes_checked(c, active_workspace_button, bg_mask, (int[]){0x0000ff}));
-            cookies.push_back(xcb_clear_area_checked(c, 1, active_workspace_button, 0, 0, 30, 30));
-
-            for(const auto& cookie : cookies) {
-                if(auto err = xcb_request_check(c, cookie); err) {
-                    cx::println("Failed to change attributes of window. Error code: {}", err->error_code);
-                }
-            }
-            active_workspace_button = item;
-            return items[item]->workspace_id;
-        } else {
-            return {};
-        }
-    }
-
     void WorkspaceBox::draw(xcb_connection_t* c)
     {
         local_persist auto box_width = 25;
