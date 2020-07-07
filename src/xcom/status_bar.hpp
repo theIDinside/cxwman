@@ -25,8 +25,9 @@ namespace cx::workspace
         WorkspaceBox(cx::uint ws_id, xcb_drawable_t xid, geom::Geometry geometry);
         void draw(xcb_connection_t* c);
 
-        template <typename Cb>
-        auto signal(Cb cb) {
+        template<typename Cb>
+        auto signal(Cb cb)
+        {
             cb(workspace_id);
         }
     };
@@ -37,8 +38,8 @@ namespace cx::workspace
         cx::geom::Geometry geometry;
         std::map<xcb_window_t, std::unique_ptr<WorkspaceBox>> items;
         std::size_t active_workspace;
-      public:
 
+      public:
         // one-time initialize the graphics contexts
         // application window id
         xcb_window_t drawable;
@@ -46,16 +47,17 @@ namespace cx::workspace
         xcb_gcontext_t gc_active;
         xcb_connection_t* c;
         xcb_window_t active_workspace_button;
-        StatusBar(xcb_connection_t* c, xcb_window_t assigned_id, geom::Geometry assigned_geometry, std::vector<std::unique_ptr<WorkspaceBox>> boxes, xcb_gcontext_t active,
-                  xcb_gcontext_t inactive);
+        StatusBar(xcb_connection_t* c, xcb_window_t assigned_id, geom::Geometry assigned_geometry, std::vector<std::unique_ptr<WorkspaceBox>> boxes,
+                  xcb_gcontext_t active, xcb_gcontext_t inactive);
         void draw(std::size_t active_workspace = 0);
         void set_active(std::size_t item);
         void update();
         void add_workspace();
         bool has_child(xcb_window_t window);
 
-        template <typename CallBack>
-        void clicked_workspace(xcb_window_t item, CallBack cb) {
+        template<typename CallBack>
+        void clicked_workspace(xcb_window_t item, CallBack cb)
+        {
             if(this->items.count(item) && item != active_workspace_button) {
                 std::array<xcb_void_cookie_t, 4> cookies{};
                 items[item]->draw_props = gc_active;
@@ -63,11 +65,11 @@ namespace cx::workspace
 
                 auto bg_mask = XCB_CW_BACK_PIXEL;
                 auto color = 0x00ff00;
-
+                const auto& [x, y, w, h] = items[item]->dimension.xcb_value_list();
                 cookies[0] = xcb_change_window_attributes_checked(c, item, bg_mask, (int[]){color});
-                cookies[1] = xcb_clear_area_checked(c, 1, item, 0, 0, 30, 30);
+                cookies[1] = xcb_clear_area_checked(c, 1, item, 0, 0, w, h);
                 cookies[2] = xcb_change_window_attributes_checked(c, active_workspace_button, bg_mask, (int[]){0x0000ff});
-                cookies[3] = xcb_clear_area_checked(c, 1, active_workspace_button, 0, 0, 30, 30);
+                cookies[3] = xcb_clear_area_checked(c, 1, active_workspace_button, 0, 0, w, h);
 
                 for(const auto& cookie : cookies) {
                     if(auto err = xcb_request_check(c, cookie); err) {

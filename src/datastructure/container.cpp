@@ -13,25 +13,17 @@ namespace cx::workspace
         }
     }
 
-    ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry) noexcept
-        : tag(std::move(container_tag)), client{}, left(nullptr), right(nullptr), parent(nullptr), policy(Layout::Vertical), split_ratio(0.5),
-          geometry(geometry), m_tree_height(0)
-    {
-        assert(!client.has_value() && "Client should not be set using this constructor");
-    }
-
     ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout,
                                  std::size_t height) noexcept
         : tag(std::move(container_tag)), client{}, left(nullptr), right(nullptr), parent(parent), policy(layout), split_ratio(0.5),
           geometry(geometry), m_tree_height(height)
     {
     }
-    // Private constructor accessed from make_root
+
     ContainerTree::ContainerTree(std::string container_tag, geom::Geometry geometry, Layout layout) noexcept
         : tag(std::move(container_tag)), client{}, left(nullptr), right(nullptr), parent(this), policy(layout), split_ratio(0.5f), geometry(geometry),
           m_tree_height(0)
     {
-        DBGLOG("Constructing root container: {}", tag);
     }
 
     ContainerTree::~ContainerTree()
@@ -67,6 +59,7 @@ namespace cx::workspace
                 left->push_client(existing_client);
                 right->push_client(new_client);
                 client.reset(); // effectively making 'this' of branch type
+                assert(!client && "Client must be reset so that we are no longer considered a window / leaf type");
             } else if(policy == Layout::Vertical) {
                 auto [lgeo, rgeo] = geom::h_split_at(geometry, geometry.height / 2);
                 split_position.x = 0;
@@ -76,14 +69,15 @@ namespace cx::workspace
                 left->push_client(existing_client);
                 right->push_client(new_client);
                 client.reset(); // effectively making 'this' of branch type
+                assert(!client && "Client must be reset so that we are no longer considered a window / leaf type");
             }
         } else {
             // default behavior is that each sub-division moves between horizontal / vertical layouts. if it's set to FLOATING we let it be
-            if(this->policy == Layout::Vertical)
+            if(this->policy == Layout::Vertical) {
                 policy = Layout::Horizontal;
-            else if(this->policy == Layout::Horizontal)
+            } else if(this->policy == Layout::Horizontal) {
                 policy = Layout::Vertical;
-            DBGLOG("Window container. Client tag name {}", tag);
+            }
             this->tag = new_client.m_tag.m_tag;
             this->client = new_client; // making 'this' of leaf type
             this->client->set_geometry(this->geometry);
@@ -174,20 +168,24 @@ namespace cx::workspace
             DBGLOG("Root windows can not be moved! {}", "");
         }
     }
-    void promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent)
+    auto promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent) -> ContainerTree*
     {
         if(parent->is_root()) {
-            cx::println("Promoting child to ROOT parent not yet implemented");
+            cx::println("Promoting child to ROOT parent not yet implemented. PANICKING");
+            std::abort();
         } else {
             auto grand_parent = parent->parent;
             if(grand_parent->left.get() == parent) {
                 child->parent = grand_parent;
                 grand_parent->left.swap(child);
+                grand_parent->update_subtree_geometry();
+                return grand_parent->left.get();
             } else {
                 child->parent = grand_parent;
                 grand_parent->right.swap(child);
+                grand_parent->update_subtree_geometry();
+                return grand_parent->right.get();
             }
-            grand_parent->update_subtree_geometry();
         }
     }
     auto ContainerTree::make_root(const std::string& container_tag, geom::Geometry geometry, Layout layout) -> TreeOwned

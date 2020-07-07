@@ -54,7 +54,7 @@ namespace cx::workspace
          */
         auto register_window(Window w, bool tiled = true) -> std::optional<SplitConfigurations>;
         auto unregister_window(ContainerTree* t) -> void;
-
+        auto unregister_window(Window w) -> void;
         /// Searches the ContainerTree in order, for a window with the id of xwin
         auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
         /// Traverses the ContainerTree for this workspace in order, and calls xcb_configure for each window with
@@ -66,6 +66,8 @@ namespace cx::workspace
         void rotate_focus_pair() const;
         // This moves this window from it's anchor, in vector's dir.
         void move_focused(cx::events::ScreenSpaceDirection dir);
+        /// Changes the currently focused() item to it's sibling (or root if no sibling exists)
+        void focus_pointer_to_sibling();
         /// Increases width or height of window, in all four directions, depending on the parameter arg
         void increase_size_focused(cx::events::ResizeArgument arg);
         /// Decreases width or height of window, in all four directions, depending on the parameter arg
@@ -91,19 +93,21 @@ namespace cx::workspace
 
         void anchor_new_root(TreeOwned new_root, const std::string& tag);
 
-        template <typename XCBUnMapFn>
-        void unmap_workspace(XCBUnMapFn fn)  {
+        template<typename XCBUnMapFn>
+        void unmap_workspace(XCBUnMapFn fn)
+        {
             in_order_window_map(m_root, [fn](auto window) {
-              DBGLOG("Unmapping window {}", "");
+                DBGLOG("Unmapping window {}", "");
                 fn(window.frame_id);
             });
         }
 
-        template <typename XCBMapFn>
-        void map_workspace(XCBMapFn fn)  {
+        template<typename XCBMapFn>
+        void map_workspace(XCBMapFn fn)
+        {
             in_order_window_map(m_root, [fn](auto window) {
-              DBGLOG("Mapping window {}", "");
-              fn(window.frame_id);
+                DBGLOG("Mapping window {}", "");
+                fn(window.frame_id);
             });
         }
     };

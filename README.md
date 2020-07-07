@@ -20,12 +20,15 @@
    - [x] Move window left/right
    - [x] Move window up/down
    - [x] Teleport window to (implementation done, user functionality not yet done)
-   - [ ] Kill client & application
+   - [x] Kill client & application
    - [ ] Make window floating
    - [ ] Anchor tree to window (make it tiled)
    - [x] Resize tiled window
    - [ ] Resize floating window (easy.. Just tell X to resize, since we don't care how or where it ends up)
    - [ ] Make a run command user input window (described under section ["User command input window"](#user-command-input-window))
+   - [x] Change workspace
+   - [ ] Tag workspaces so switching between them can be done via key-combos
+   - [ ] Open run CXWMAN command (as an input box or something). For instance; kill x, or open x on ws1 things of that nature
 ### User command input window
 
 #### Feature ideas

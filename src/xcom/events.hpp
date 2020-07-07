@@ -27,7 +27,7 @@ namespace cx::events
     };
 
     struct EventArg {
-        using ArgsTypes = std::variant<Dir, Pos, Geo, int, ResizeArgument>;
+        using ArgsTypes = std::variant<Dir, Pos, Geo, int, ResizeArgument, std::nullopt_t>;
         EventArg() noexcept = default;
         EventArg(EventArg&&) noexcept = default;
         EventArg(const EventArg&) noexcept = default;

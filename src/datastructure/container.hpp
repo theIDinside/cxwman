@@ -45,7 +45,6 @@ namespace cx::workspace
         using TreeOwned = std::unique_ptr<ContainerTree>;
         using TreePtr = ContainerTree*;
 
-        explicit ContainerTree(std::string container_tag, geom::Geometry geometry) noexcept;
         explicit ContainerTree(std::string container_tag, geom::Geometry geometry, ContainerTree* parent, Layout layout, std::size_t height) noexcept;
         ~ContainerTree();
 
@@ -82,7 +81,7 @@ namespace cx::workspace
         friend void move_client(ContainerTree* from, ContainerTree* to);
         // Promote's child to parent. This function also calls update_subtree_geometry on promoted child so all it's children get proper
         // geometries
-        friend void promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent);
+        friend auto promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent) -> ContainerTree*;
         static auto make_root(const std::string& container_tag, geom::Geometry geometry, Layout layout) -> TreeOwned;
 
       protected:
@@ -92,7 +91,7 @@ namespace cx::workspace
     using TreeRef = std::unique_ptr<ContainerTree>&;
     using TreeOwned = std::unique_ptr<ContainerTree>;
     void move_client(ContainerTree* from, ContainerTree* to);
-    [[maybe_unused]] void promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent);
+    [[maybe_unused]] auto promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent) -> ContainerTree*;
     std::unique_ptr<ContainerTree> make_tree(std::string ws_tag);
 
     template<typename MapFn>

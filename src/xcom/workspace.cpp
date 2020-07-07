@@ -1,4 +1,5 @@
 #include "events.hpp"
+#include <cassert>
 #include <stack>
 #include <utility>
 #include <xcom/core.hpp>
@@ -40,26 +41,40 @@ namespace cx::workspace
     {
         auto& left_sibling = t->parent->left;
         auto& right_sibling = t->parent->right;
+        bool set_new_focus = (foc_con == t);
         if(t->is_window()) {
             if(left_sibling && right_sibling) {
                 if(!t->parent->is_root()) {
                     if(left_sibling.get() == t) {
                         // FIXME: Workspace's FOCUS POINTER must be set somewhere
-                        promote_child(std::move(t->parent->right), t->parent);
+                        auto ptr_to_tree_pos = promote_child(std::move(t->parent->right), t->parent);
+                        if(set_new_focus)
+                            foc_con = ptr_to_tree_pos;
                     } else if(right_sibling.get() == t) {
-                        promote_child(std::move(t->parent->left), t->parent);
+                        auto ptr_to_tree_pos = promote_child(std::move(t->parent->left), t->parent);
+                        if(set_new_focus)
+                            foc_con = ptr_to_tree_pos;
                     }
                 } else {
                     auto root_tag = m_root->tag;
                     if(left_sibling.get() == t) {
+                        if(set_new_focus) foc_con = t->parent->right.get();
                         anchor_new_root(std::move(t->parent->right), root_tag);
                         left_sibling.reset();
                     } else if(right_sibling.get() == t) {
+                        if(set_new_focus) foc_con = t->parent->left.get();
                         anchor_new_root(std::move(t->parent->left), root_tag);
                         right_sibling.reset();
                     }
                     m_root->update_subtree_geometry();
                 }
+            } else {
+                auto root_tag = m_root->tag;
+                auto m_root_geometry = m_space;
+                auto m_root_layout = m_root->policy;
+                m_root.reset();
+                m_root = ContainerTree::make_root(root_tag, m_root_geometry, m_root_layout);
+                foc_con = m_root.get();
             }
         }
     }
@@ -132,14 +147,6 @@ namespace cx::workspace
             DBGLOG("Target position is inside source geometry. No move {}", "");
         }
     }
-    /*
-     * TODO: implement a decrease_size_focused. The reason why this is not one single method is because when we increase size of a client, we check
-     *  for collisions with other clients, and decrease their size accordingly. However, when we decrease the size of a focused client, no
-     *  collisions will occur so essentially it will have to do completely different check operations. One way to possibly solve this, is to have yet
-     *  another member function that asks a question like "who is bound/connected to me at position P" and then *increase* that client's size.
-     *  Possible name of function found in geometry.hpp called adjacent_to. The question is if one should provide what side to of the client to scan
-     *  or if we scan all 4 sides of client geometry and return what side target geometry is adjacent to
-     */
     void Workspace::increase_size_focused(cx::events::ResizeArgument arg)
     {
         using Dir = cx::events::ScreenSpaceDirection;
@@ -254,7 +261,7 @@ namespace cx::workspace
         if(c) {
             auto client = c.value()->client.value();
             DBGLOG("Focused client: [Frame: {}, Client: {}] @ (x:{},y:{}) (w:{} x h:{})", client.frame_id, client.client_id, client.geometry.x(),
-                client.geometry.y(), client.geometry.width, client.geometry.height);
+                   client.geometry.y(), client.geometry.width, client.geometry.height);
             foc_con = *c;
             return true;
         } else {
@@ -267,7 +274,6 @@ namespace cx::workspace
     template<typename P>
     [[maybe_unused]] std::vector<ContainerTree*> Workspace::get_clients(P p)
     {
-        // TODO(implement): Add template to this, so we can pass in a predicate, so we can say "we want windows according to rule X"
         std::vector<ContainerTree*> clients{};
         std::stack<ContainerTree*> iterator_stack{};
         ContainerTree* iter = m_root.get();
@@ -289,6 +295,7 @@ namespace cx::workspace
     }
     void Workspace::anchor_new_root(TreeOwned new_root, const std::string& tag)
     {
+        // cx::println("ANCHORING NEW ROOT. UNTESTED FUNCTION. MIGHT BE BUGGY.");
         m_root = std::move(new_root);
         m_root->tag = tag;
         m_root->geometry = m_space;
@@ -296,9 +303,16 @@ namespace cx::workspace
             m_root->client->set_geometry(m_space);
             m_root->parent = m_root.get();
         } else {
-            // TODO: I have completely forgotten what I should do here. This will most likely result in some bug. Keep checking back when I have the
-            //  energy
+            m_root->geometry = m_space;
+            m_root->parent = m_root.get();
         }
     }
-
+    void Workspace::focus_pointer_to_sibling()
+    {
+        if(foc_con->parent->left.get() == foc_con) {
+            foc_con = foc_con->parent->right.get();
+        } else {
+            foc_con = foc_con->parent->left.get();
+        }
+    }
 }; // namespace cx::workspace

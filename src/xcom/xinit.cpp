@@ -69,7 +69,7 @@ namespace cx::x11
         return make_array(mp(KM::SUPER_SHIFT, XK_F4), mp(KM::SUPER_SHIFT, XK_R), mp(KM::SUPER_SHIFT, XK_Left), mp(KM::SUPER_SHIFT, XK_Right),
                           mp(KM::SUPER_SHIFT, XK_Up), mp(KM::SUPER_SHIFT, XK_Down), mp(KM::SUPER, XK_Left), mp(KM::SUPER, XK_Right),
                           mp(KM::SUPER, XK_Up), mp(KM::SUPER, XK_Down), mp(KM::SUPER_CTRL, XK_Left), mp(KM::SUPER_CTRL, XK_Right),
-                          mp(KM::SUPER_CTRL, XK_Up), mp(KM::SUPER_CTRL, XK_Down));
+                          mp(KM::SUPER_CTRL, XK_Up), mp(KM::SUPER_CTRL, XK_Down), mp(KM::SUPER_SHIFT, XK_Q));
     }
 
     void setup_key_press_listening(XCBConn* conn, XCBWindow root)
@@ -98,7 +98,7 @@ namespace cx::x11
         auto prop_cookie = xcb_get_property(c, 0, window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 0, 45);
         if(auto prop_reply = xcb_get_property_reply(c, prop_cookie, nullptr); prop_reply) {
             auto str_length = xcb_get_property_value_length(prop_reply);
-            if(str_length == 0) {
+            if(str_length <= 0) {
                 DBGLOG("Failed to get WM_NAME due to length being == {}", str_length);
                 free(prop_reply);
                 return {};

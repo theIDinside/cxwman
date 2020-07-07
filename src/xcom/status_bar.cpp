@@ -5,8 +5,8 @@
 #include "status_bar.hpp"
 namespace cx::workspace
 {
-    StatusBar::StatusBar(xcb_connection_t* c, xcb_window_t assigned_id, geom::Geometry assigned_geometry, std::vector<std::unique_ptr<WorkspaceBox>> boxes,
-                         xcb_gcontext_t active, xcb_gcontext_t inactive)
+    StatusBar::StatusBar(xcb_connection_t* c, xcb_window_t assigned_id, geom::Geometry assigned_geometry,
+                         std::vector<std::unique_ptr<WorkspaceBox>> boxes, xcb_gcontext_t active, xcb_gcontext_t inactive)
         : geometry(assigned_geometry), drawable(assigned_id), items{}, active_workspace{0}, gc_active{active}, gc_inactive{inactive}, c(c)
     {
         for(auto&& item : boxes) {
@@ -21,17 +21,14 @@ namespace cx::workspace
     void StatusBar::set_active(std::size_t item_index)
     {
         for(auto& [k, v] : items) {
-            if(v->workspace_id == item_index) v->draw_props = gc_active;
-            else v->draw_props = gc_inactive;
+            if(v->workspace_id == item_index)
+                v->draw_props = gc_active;
+            else
+                v->draw_props = gc_inactive;
         }
     }
-    void StatusBar::update()
-    {
-
-    }
-    bool StatusBar::has_child(xcb_window_t window) {
-        return items.count(window) > 0;
-    }
+    void StatusBar::update() {}
+    bool StatusBar::has_child(xcb_window_t window) { return items.count(window) > 0; }
 
     void WorkspaceBox::draw(xcb_connection_t* c)
     {
@@ -110,13 +107,15 @@ namespace cx::workspace
         xcb_window_t awin;
         for(auto i = 0; i < workspace_count; i++) {
             auto id = xcb_generate_id(c);
-            if(i == 0) awin = id;
+            if(i == 0)
+                awin = id;
             auto border_width = 1;
             x_anchor = (i * 25) + border_width;
             geom::Geometry wsb_geom{x_anchor, 0, 25, 25};
             const auto& [x, y, w, h] = wsb_geom.xcb_value_list();
-            auto create_cookie = xcb_create_window_checked(c, XCB_COPY_FROM_PARENT, id, sys_bar_id, x, y, w, h, border_width,
-                                                           XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, box_masks, (i == 0) ? active_box_values : inactive_box_values);
+            auto create_cookie =
+                xcb_create_window_checked(c, XCB_COPY_FROM_PARENT, id, sys_bar_id, x, y, w, h, border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT,
+                                          screen->root_visual, box_masks, (i == 0) ? active_box_values : inactive_box_values);
             auto map_cookie = xcb_map_window_checked(c, id);
             auto no_error_found = true;
             if(auto err = xcb_request_check(c, create_cookie); err) {
@@ -129,14 +128,17 @@ namespace cx::workspace
             }
             if(no_error_found) {
                 auto wsb = std::make_unique<WorkspaceBox>(i, id, wsb_geom);
-                if(i == 0) wsb->draw_props = active_draw_prop.value();
-                else wsb->draw_props = inactive_drawprop.value();
+                if(i == 0)
+                    wsb->draw_props = active_draw_prop.value();
+                else
+                    wsb->draw_props = inactive_drawprop.value();
                 workspace_boxes.push_back(std::move(wsb));
             } else {
                 cx::println("Due to X error, workspace box item was not created");
             }
         }
-        auto sbar = std::make_unique<StatusBar>(c, sys_bar_id, sys_bar_geometry, std::move(workspace_boxes), active_draw_prop.value(), inactive_drawprop.value());
+        auto sbar = std::make_unique<StatusBar>(c, sys_bar_id, sys_bar_geometry, std::move(workspace_boxes), active_draw_prop.value(),
+                                                inactive_drawprop.value());
         sbar->active_workspace_button = awin;
         return sbar;
     }

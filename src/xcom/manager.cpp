@@ -43,6 +43,9 @@ namespace cx
         add_workspace("Workspace 6", 0);
         add_workspace("Workspace 7", 0);
         add_workspace("Workspace 8", 0);
+        add_workspace("Workspace 9", 0);
+        add_workspace("Workspace 10", 0);
+        add_workspace("Workspace 11", 0);
         this->status_bar = ws::make_system_bar(get_conn(), get_screen(), m_workspaces.size(), geom::Geometry{0, 0, 800, 25});
         this->focused_ws = m_workspaces[0].get();
     }
@@ -150,11 +153,11 @@ namespace cx
     {
     }
 
-    [[nodiscard]] inline auto Manager::get_conn() const -> x11::XCBConn* { return x_detail.c; }
+    [[nodiscard]] inline constexpr auto Manager::get_conn() const -> x11::XCBConn* { return x_detail.c; }
 
-    [[nodiscard]] inline auto Manager::get_root() const -> x11::XCBWindow { return x_detail.screen->root; }
+    [[nodiscard]] inline constexpr auto Manager::get_root() const -> x11::XCBWindow { return x_detail.screen->root; }
 
-    [[nodiscard]] inline auto Manager::get_screen() const -> x11::XCBScreen* { return x_detail.screen; }
+    [[nodiscard]] inline constexpr auto Manager::get_screen() const -> x11::XCBScreen* { return x_detail.screen; }
 
     // TODO(EWMHints): Grab EWM hints & set up supported hints
     auto Manager::handle_map_request(xcb_map_request_event_t* evt) -> void
@@ -168,19 +171,16 @@ namespace cx
     {
         // DBGLOG("Handle unmap request for {}", event->window);
         auto window_container = focused_ws->find_window(event->window);
-
         if(window_container) {
-            // unframe_window(*window);
             auto window = *window_container.value()->client;
+            unframe_window(window, false);
             focused_ws->unregister_window(*window_container);
-            unframe_window(window);
             focused_ws->display_update(get_conn());
         }
     }
 
     auto Manager::handle_config_request(xcb_configure_request_event_t* e) -> void
     {
-        cx::println("\tcfg request by: {} sibling: {}", e->window, e->sibling);
         xcb_generic_error_t* err;
         uint32_t values[7], mask = 0, i = 0;
         if(client_to_frame_mapping.count(e->parent) == 1) {
@@ -275,12 +275,14 @@ namespace cx
         }
 
         auto win_attr = xcb_get_window_attributes_reply(get_conn(), xcb_get_window_attributes(get_conn(), window), nullptr);
-        auto client_geometry = process_x_geometry(xcb_get_geometry_reply(get_conn(), xcb_get_geometry(get_conn(), window), nullptr));
+        auto client_geometry = process_x_geometry(get_conn(), window);
         DBGLOG("Client geometry: {},{} -- {}x{}", client_geometry->x(), client_geometry->y(), client_geometry->width, client_geometry->height);
         if(created_before_wm) {
             cx::println("Window was created before WM.");
-            if(win_attr->override_redirect || win_attr->map_state != XCB_MAP_STATE_VIEWABLE)
+            if(win_attr->override_redirect || win_attr->map_state != XCB_MAP_STATE_VIEWABLE) {
+                delete win_attr;
                 return;
+            }
         }
 
         // construct frame
@@ -300,23 +302,10 @@ namespace cx
         auto tag = x11::get_client_wm_name(get_conn(), window);
         ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id,
                        ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
-        cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
-        cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
-        cookies[4] = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC, XCB_NONE,
-                                             XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
-
-        process_request(cookies[0], win, [](auto w) { cx::println("Failed to create X window/frame"); });
-        process_request(cookies[1], win, [](auto w) { cx::println("Re-parenting window {} to frame {} failed", w.client_id, w.frame_id); });
-        process_request(cookies[2], win, [](auto w) { cx::println("Failed to map frame {}", w.frame_id); });
-        process_request(cookies[3], win, [](auto w) { cx::println("Failed to map sub-windows of frame {} -> {}", w.frame_id, w.client_id); });
-        process_request(cookies[4], win, [](auto w) { cx::println("Failed button grab on window {}", w.client_id); });
-
         if(!focused_ws) {
             DBGLOG("No workspace container was created. {}!", "Error");
         }
-
-        auto layout_attributes = focused_ws->register_window(win);
-        if(layout_attributes) {
+        if(auto layout_attributes = focused_ws->register_window(win); layout_attributes) {
             auto split_cfg = layout_attributes.value();
             if(split_cfg.existing_window && split_cfg.new_window) {
                 configure_window_geometry(split_cfg.existing_window.value());
@@ -324,25 +313,40 @@ namespace cx
             } else if(!split_cfg.existing_window && split_cfg.new_window) {
                 configure_window_geometry(split_cfg.new_window.value());
             }
+            cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
+            cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
+            cookies[4] = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
+                                                 XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
+
+            process_request(cookies[0], win, [](auto w) { cx::println("Failed to create X window/frame"); });
+            process_request(cookies[1], win, [](auto w) { cx::println("Re-parenting window {} to frame {} failed", w.client_id, w.frame_id); });
+            process_request(cookies[2], win, [](auto w) { cx::println("Failed to map frame {}", w.frame_id); });
+            process_request(cookies[3], win, [](auto w) { cx::println("Failed to map sub-windows of frame {} -> {}", w.frame_id, w.client_id); });
+            process_request(cookies[4], win, [](auto w) { cx::println("Failed button grab on window {}", w.client_id); });
+
         } else {
             cx::println("FOUND NO LAYOUT ATTRIBUTES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         }
+
         client_to_frame_mapping[window] = frame_id;
         frame_to_client_mapping[frame_id] = window;
         x11::setup_mouse_button_request_handling(get_conn(), window);
         delete win_attr;
     }
 
-    auto Manager::unframe_window(const ws::Window& w) -> void
+    auto Manager::unframe_window(const ws::Window& w, bool destroy_client) -> void
     {
         xcb_unmap_window(get_conn(), w.frame_id);
         xcb_reparent_window(get_conn(), w.client_id, get_root(), 0, 0);
         xcb_destroy_window(get_conn(), w.frame_id);
+        if(destroy_client)
+            xcb_destroy_window(get_conn(), w.client_id);
+        xcb_flush(get_conn());
         client_to_frame_mapping.erase(w.client_id);
         frame_to_client_mapping.erase(w.frame_id);
     }
 
-    auto Manager::configure_window_geometry(ws::Window window) -> void
+    auto Manager::configure_window_geometry(const ws::Window& window) -> void
     {
         namespace xcm = xcb_config_masks;
         const auto& [x, y, width, height] = window.geometry.xcb_value_list();
@@ -378,33 +382,26 @@ namespace cx
                     break;
                 }
                 case XCB_MAP_NOTIFY: {
-                    cx::println("Map notify caught");
                     break;
                 }
                 case XCB_UNMAP_NOTIFY:
                     handle_unmap_request((xcb_unmap_window_request_t*)evt);
                     break;
                 case XCB_CONFIGURE_REQUEST: {
-                    cx::println("Configure request caught");
                     handle_config_request((xcb_configure_request_event_t*)evt);
                     break;
                 }
                 case XCB_BUTTON_PRESS: {
-                    cx::println("Button press caught");
                     auto e = (xcb_button_press_event_t*)evt;
                     if(e->event == this->x_detail.root_window) {
                         if(!focused_ws->focus_client_with_xid(e->child)) {
                             // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
-                            status_bar->clicked_workspace(e->child, [this](auto workspace_id) {
-                                this->change_workspace(workspace_id);
-                            });
+                            status_bar->clicked_workspace(e->child, [this](auto workspace_id) { this->change_workspace(workspace_id); });
                         }
                     } else {
                         if(!focused_ws->focus_client_with_xid(e->event)) {
                             // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
-                            status_bar->clicked_workspace(e->event, [this](auto workspace_id) {
-                                this->change_workspace(workspace_id);
-                            });
+                            status_bar->clicked_workspace(e->event, [this](auto workspace_id) { this->change_workspace(workspace_id); });
                         }
                     }
                     break;
@@ -427,7 +424,6 @@ namespace cx
                 case XCB_EXPOSE:
                     auto e = (xcb_expose_event_t*)evt;
                     if(status_bar->has_child(e->window)) {
-                        cx::println("Expose event for Statusbar item caught");
                         status_bar->draw();
                     }
                     break; // TODO(implement) XCB_EXPOSE
@@ -438,6 +434,8 @@ namespace cx
     auto Manager::add_workspace(const std::string& workspace_tag, std::size_t screen_number) -> void
     {
         auto status_bar_height = 25;
+        // FIXME: This has hardcoded screen width by height size, as during testing we know. This OBVIOUSLY has to be fixed so that correct size
+        //  settings get passsed
         m_workspaces.emplace_back(
             std::make_unique<ws::Workspace>(m_workspaces.size(), workspace_tag, geom::Geometry{0, status_bar_height, 800, 600 - status_bar_height}));
     }
@@ -466,6 +464,7 @@ namespace cx
         event_dispatcher.register_action(KC{XK_Right, xkm::SUPER_CTRL}, &Manager::decrease_size_focused, Arg{ResizeArg{Dir::LEFT, 10}});
         event_dispatcher.register_action(KC{XK_Up, xkm::SUPER_CTRL}, &Manager::decrease_size_focused, Arg{ResizeArg{Dir::DOWN, 10}});
         event_dispatcher.register_action(KC{XK_Down, xkm::SUPER_CTRL}, &Manager::decrease_size_focused, Arg{ResizeArg{Dir::UP, 10}});
+        event_dispatcher.register_action(KC{XK_q, xkm::SUPER_SHIFT}, &Manager::kill_client, Arg{std::nullopt});
     }
 
     // Manager window/client actions
@@ -484,7 +483,6 @@ namespace cx
 
     auto Manager::move_focused(cx::events::EventArg arg) -> void
     {
-        cx::println("Generalized move focused client call made");
         auto cmd_arg = std::get<cx::events::ScreenSpaceDirection>(arg.arg);
         focused_ws->move_focused(cmd_arg);
         focused_ws->display_update(get_conn());
@@ -523,9 +521,18 @@ namespace cx
             cx::println("There is no workspace with id {}", ws_id);
         }
     }
-    auto process_x_geometry(xcb_get_geometry_reply_t* reply) -> std::optional<geom::Geometry>
+    auto Manager::kill_client(cx::events::EventArg arg) -> void
     {
-        if(reply) {
+        auto focused_client = focused_ws->focused().client->client_id;
+        auto cookie = xcb_kill_client_checked(get_conn(), focused_client);
+        if(auto err = xcb_request_check(get_conn(), cookie); err) {
+            cx::println("Failed to kill client");
+        }
+    }
+
+    auto process_x_geometry(xcb_connection_t* c, xcb_window_t window) -> std::optional<geom::Geometry>
+    {
+        if(auto reply = xcb_get_geometry_reply(c, xcb_get_geometry(c, window), nullptr); reply) {
             auto res = geom::Geometry{static_cast<geom::GU>(reply->x), static_cast<geom::GU>(reply->y), static_cast<geom::GU>(reply->width),
                                       static_cast<geom::GU>(reply->height)};
             delete reply;

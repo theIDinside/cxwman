@@ -7,3 +7,7 @@ cxwbuild.sh
 dep
 .idea/
 nonrelated/
+.run/
+misc/
+xephyr/
+misc/runxephyr.sh
