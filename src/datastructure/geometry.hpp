@@ -29,14 +29,14 @@ namespace cx::geom
         friend auto v_split(const Geometry& g, float split_ratio) -> std::pair<Geometry, Geometry>;
         friend auto h_split(const Geometry& g, float split_ratio) -> std::pair<Geometry, Geometry>;
 
-        friend auto v_split_at(const Geometry& g, int x) -> std::pair<Geometry, Geometry>;
-        friend auto h_split_at(const Geometry& g, int y) -> std::pair<Geometry, Geometry>;
+        friend auto v_split_at(const Geometry& g, int x, int border_width_adjust) -> std::pair<Geometry, Geometry>;
+        friend auto h_split_at(const Geometry& g, int y, int border_width_adjust) -> std::pair<Geometry, Geometry>;
 
         [[nodiscard]] constexpr inline GU y() const { return pos.y; }
         [[nodiscard]] constexpr inline GU x() const { return pos.x; }
         /// Returns geometry values used by the X server. Utility function, so we can use structured bindings like so: auto& [x,y,w,h] = xcb_value_list()
         [[nodiscard]] constexpr inline auto xcb_value_list() const -> std::array<GU, 4> { return {pos.x, pos.y, width, height}; }
-
+        [[nodiscard]] constexpr inline auto xcb_value_list_border_adjust(int border_width) const -> std::array<GU, 4> { return {pos.x, pos.y, width - (border_width * 2), height - (border_width * 2)}; }
         static Geometry default_new() { return Geometry{0, 0, 800, 600}; }
         static Geometry window_default() { return Geometry{0, 0, 400, 400}; }
         // This function
@@ -49,8 +49,8 @@ namespace cx::geom
     };
     auto v_split(const Geometry& g, float split_ratio = 0.5f) -> std::pair<Geometry, Geometry>;
     auto h_split(const Geometry& g, float split_ratio = 0.5f) -> std::pair<Geometry, Geometry>;
-    auto v_split_at(const Geometry& g, int x) -> std::pair<Geometry, Geometry>;
-    auto h_split_at(const Geometry& g, int y) -> std::pair<Geometry, Geometry>;
+    auto v_split_at(const Geometry& g, int x, int border_width_adjust = 0) -> std::pair<Geometry, Geometry>;
+    auto h_split_at(const Geometry& g, int y, int border_width_adjust = 0) -> std::pair<Geometry, Geometry>;
 
     /// Aligned-axis bounding box collision
     auto is_inside(const Position& p, const Geometry& geometry) -> bool;

@@ -149,7 +149,7 @@ namespace cx
                      x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
         : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
           m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{},
-          focused_ws(nullptr), m_workspaces{}, event_dispatcher{this}, status_bar{nullptr}
+          focused_ws(nullptr), m_workspaces{}, event_dispatcher{this}, status_bar{nullptr}, inactive_windows{1, 0xff0000}, active_windows{1, 0x00ff00}
     {
     }
 
@@ -263,11 +263,7 @@ namespace cx
     auto Manager::frame_window(x11::XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
     {
         namespace xkm = xcb_key_masks;
-
-        std::array<xcb_void_cookie_t, 5> cookies{};
-        constexpr auto border_width = 2;
-        constexpr auto border_color = 0xff12ab;
-        constexpr auto bg_color = 0x010101;
+        std::array<xcb_void_cookie_t, 6> cookies{};
 
         if(client_to_frame_mapping.count(window)) {
             DBGLOG("Framing an already framed window (id: {}) is unhandled behavior. Returning early from framing function.", window);
@@ -290,20 +286,21 @@ namespace cx
         uint32_t values[2];
         /* see include/xcb.h for the FRAME_EVENT_MASK */
         uint32_t mask = XCB_CW_BORDER_PIXEL;
-        values[0] = border_color;
+        values[0] = inactive_windows.border_color;
         mask |= XCB_CW_EVENT_MASK;
         values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS |
                     XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
 
         cookies[0] = xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
-                                               border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
+                                               inactive_windows.border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
 
-        cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 1, 1);
+        cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 0, 0);
         auto tag = x11::get_client_wm_name(get_conn(), window);
         ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id,
                        ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
         if(!focused_ws) {
             DBGLOG("No workspace container was created. {}!", "Error");
+            std::abort();
         }
         if(auto layout_attributes = focused_ws->register_window(win); layout_attributes) {
             auto split_cfg = layout_attributes.value();
@@ -317,13 +314,14 @@ namespace cx
             cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
             cookies[4] = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
                                                  XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
-
+            cookies[5] = xcb_grab_button_checked(get_conn(), 1, frame_id, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
+                                    XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_ANY);
             process_request(cookies[0], win, [](auto w) { cx::println("Failed to create X window/frame"); });
             process_request(cookies[1], win, [](auto w) { cx::println("Re-parenting window {} to frame {} failed", w.client_id, w.frame_id); });
             process_request(cookies[2], win, [](auto w) { cx::println("Failed to map frame {}", w.frame_id); });
             process_request(cookies[3], win, [](auto w) { cx::println("Failed to map sub-windows of frame {} -> {}", w.frame_id, w.client_id); });
             process_request(cookies[4], win, [](auto w) { cx::println("Failed button grab on window {}", w.client_id); });
-
+            process_request(cookies[4], win, [](auto w) { cx::println("Failed button grab on frame {}", w.frame_id); });
         } else {
             cx::println("FOUND NO LAYOUT ATTRIBUTES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         }
@@ -354,7 +352,10 @@ namespace cx
         auto child_properties = xcm::RESIZE;
         // cx::uint frame_values[] = {x, y, width, m_tree_height};
         cx::uint child_values[] = {(cx::uint)width, (cx::uint)height};
-        auto cookies = CONFIG_CX_WINDOW(window, frame_properties, window.geometry.xcb_value_list().data(), child_properties, child_values);
+        // TODO: Fix so that borders show up on the right side and bottom side of windows.
+        cx::uint frame_vals[]{(cx::uint)x, (cx::uint)y, (cx::uint)width, (cx::uint)height};
+
+        auto cookies = CONFIG_CX_WINDOW(window, frame_properties, window.geometry.xcb_value_list_border_adjust(1).data(), child_properties, child_values);
         for(const auto& cookie : cookies) {
             if(auto err = xcb_request_check(get_conn(), cookie); err) {
                 DBGLOG("Failed to configure item {}. Error code: {}", err->resource_id, err->error_code);
@@ -397,11 +398,25 @@ namespace cx
                         if(!focused_ws->focus_client_with_xid(e->child)) {
                             // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
                             status_bar->clicked_workspace(e->child, [this](auto workspace_id) { this->change_workspace(workspace_id); });
+                        } else {
+                            /* TODO: Implement a "focused" window property so one can clearly see which window the window manager has focused
+                             * For coloring something like this is used:
+                             * int color[]{0x00ff00};
+                             * auto ck = xcb_change_window_attributes_checked(get_conn(), focused_ws->focused().client->frame_id, XCB_CW_BORDER_PIXEL, color);
+                             * if(auto err = xcb_request_check(get_conn(), ck); err) {}
+                             */
                         }
                     } else {
                         if(!focused_ws->focus_client_with_xid(e->event)) {
                             // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
                             status_bar->clicked_workspace(e->event, [this](auto workspace_id) { this->change_workspace(workspace_id); });
+                        } else {
+                            /* TODO: Implement a "focused" window property so one can clearly see which window the window manager has focused
+                             * For coloring something like this is used:
+                             * int color[]{0x00ff00};
+                             * auto ck = xcb_change_window_attributes_checked(get_conn(), focused_ws->focused().client->frame_id, XCB_CW_BORDER_PIXEL, color);
+                             * if(auto err = xcb_request_check(get_conn(), ck); err) {}
+                             */
                         }
                     }
                     break;

@@ -23,6 +23,12 @@
 namespace cx
 {
 
+    /// Default properties
+    struct WindowProperties {
+        int border_width = 1;
+        int border_color = 0xff12ab;
+    };
+
     namespace ws = cx::workspace;
     namespace fs = std::filesystem;
 
@@ -132,8 +138,9 @@ namespace cx
         ws::Workspace* focused_ws;
         std::vector<std::unique_ptr<ws::Workspace>> m_workspaces;
         std::unique_ptr<ws::StatusBar> status_bar;
-
         KeyEventHandler<Manager> event_dispatcher;
+        WindowProperties inactive_windows;
+        WindowProperties active_windows;
     };
 
 } // namespace cx

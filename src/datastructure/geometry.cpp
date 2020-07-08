@@ -48,22 +48,22 @@ namespace cx::geom
         return {Geometry{g.x(), g.y(), g.width, theight}, Geometry{g.x(), by, g.width, bheight}};
     }
 
-    auto v_split_at(const Geometry& g, int x) -> std::pair<Geometry, Geometry>
+    auto v_split_at(const Geometry& g, int x, int border_width_adjust) -> std::pair<Geometry, Geometry>
     {
         assert(x < g.width && "you can't split at relative x greater than g.width.");
-        auto width_left = x;
-        auto width_right = g.width - x;
+        auto width_left = x - (border_width_adjust * 2);
+        auto width_right = (g.width - x) - (border_width_adjust * 2);
         auto p_left = g.pos;
         auto p_right = g.pos + Vector{x, 0};
         auto height = g.height;
         assert(width_right > 0 && width_left > 0 && "Width have to be > 0");
         return {Geometry{p_left, width_left, height}, Geometry{p_right, width_right, height}};
     }
-    auto h_split_at(const Geometry& g, int y) -> std::pair<Geometry, Geometry>
+    auto h_split_at(const Geometry& g, int y, int border_width_adjust) -> std::pair<Geometry, Geometry>
     {
         assert(y < g.height && "You can't split at relative y greater than g.height");
-        auto height_top = y;
-        auto height_bottom = g.height - y;
+        auto height_top = y - (border_width_adjust * 2);
+        auto height_bottom = (g.height - y) - (border_width_adjust * 2);
         auto p_top = g.pos;
         auto p_bottom = g.pos + Vector{0, y};
         auto width = g.width;

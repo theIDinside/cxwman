@@ -110,5 +110,13 @@ namespace cx::workspace
                 fn(window.frame_id);
             });
         }
+
+        template<typename XCBMapFn>
+        void apply_frame_attributes(XCBMapFn fn)
+        {
+            in_order_window_map(m_root, [fn](auto window) {
+              fn(window.frame_id);
+            });
+        }
     };
 } // namespace cx::workspace
