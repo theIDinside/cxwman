@@ -40,13 +40,13 @@ namespace cx::workspace
         // close graphics context
         auto label = std::to_string(workspace_id);
         auto extents_cookie = xcb_query_text_extents(c, draw_props, label.length(), reinterpret_cast<const xcb_char2b_t*>(label.c_str()));
-        auto extents = xcb_query_text_extents_reply(c, extents_cookie, nullptr);
-        if(extents) {
-            auto half_width = extents->overall_width / 2;
+        auto txt_extents = xcb_query_text_extents_reply(c, extents_cookie, nullptr);
+        if(txt_extents) {
+            auto half_width = txt_extents->overall_width / 2;
             auto half_box_width = box_width / 2;
             auto x_pos = half_box_width - half_width;
 
-            auto half_height = extents->overall_ascent / 2;
+            auto half_height = txt_extents->overall_ascent / 2;
             auto half_box_height = box_height / 2;
             auto y_pos = half_box_height + half_height;
             auto cookie_text = xcb_image_text_8_checked(c, label.length(), this->button_id, this->draw_props, x_pos, y_pos, label.c_str());

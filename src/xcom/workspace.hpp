@@ -9,13 +9,20 @@
 #include <datastructure/container.hpp>
 #include <datastructure/geometry.hpp>
 
+#include <xcom/commands/manager_command.hpp>
 #include <xcom/constants.hpp>
+#include <xcom/events.hpp>
 #include <xcom/window.hpp>
+
+namespace cx::commands
+{
+    class WindowCommand;
+}
 
 namespace cx::workspace
 {
 
-    constexpr auto is_window_predicate = [](ContainerTree* t) { return t->is_window(); };
+    constexpr auto is_window_predicate = [](auto t) { return t->is_window(); };
 
     struct SplitConfigurations {
         SplitConfigurations() noexcept : existing_window{}, new_window{}
@@ -28,8 +35,9 @@ namespace cx::workspace
         std::optional<Window> existing_window;
         std::optional<Window> new_window;
     };
-    using Pos = geom::Position;
+
     struct Workspace {
+        using Pos = geom::Position;
         using TreeOwned = ContainerTree::TreeOwned;
         // Constructors & initializers
         Workspace(cx::uint ws_id, std::string ws_name, cx::geom::Geometry space) noexcept;
@@ -52,9 +60,8 @@ namespace cx::workspace
          * Returns geometry to the manager where we have stored this client, and where it should be mapped to. Mapping is still handled by
          * the manager not the individual workspace
          */
-        auto register_window(Window w, bool tiled = true) -> std::optional<SplitConfigurations>;
+        auto register_window(Window w, bool tiled = true) -> std::optional<commands::ConfigureWindows>;
         auto unregister_window(ContainerTree* t) -> void;
-        auto unregister_window(Window w) -> void;
         /// Searches the ContainerTree in order, for a window with the id of xwin
         auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
         /// Traverses the ContainerTree for this workspace in order, and calls xcb_configure for each window with
@@ -69,23 +76,23 @@ namespace cx::workspace
         /// Changes the currently focused() item to it's sibling (or root if no sibling exists)
         void focus_pointer_to_sibling();
         /// Increases width or height of window, in all four directions, depending on the parameter arg
-        void increase_size_focused(cx::events::ResizeArgument arg);
+        auto increase_size_focused(cx::events::ResizeArgument arg) -> commands::UpdateWindows;
         /// Decreases width or height of window, in all four directions, depending on the parameter arg
-        [[maybe_unused]] void decrease_size_focused(cx::events::ResizeArgument arg);
+        auto decrease_size_focused(cx::events::ResizeArgument arg) -> commands::UpdateWindows;
         // Depending if sp_dir is negative or positive, determines what direction (left/right) the width will be increased to
         template<typename Predicate>
-        void increase_width(int sp_dir, Predicate child_of);
+        auto increase_width(int sp_dir, Predicate child_of) -> std::vector<ContainerTree*>;
 
         template<typename Predicate>
-        void increase_height(int sp_dir, Predicate child_of);
+        auto increase_height(int sp_dir, Predicate child_of) -> std::vector<ContainerTree*>;
 
         template<typename Predicate>
-        void decrease_height(int sp_dir, Predicate child_of);
+        auto decrease_height(int sp_dir, Predicate child_of) -> std::vector<ContainerTree*>;
 
         template<typename Predicate>
-        void decrease_width(int sp_dir, Predicate child_of);
+        auto decrease_width(int sp_dir, Predicate child_of) -> std::vector<ContainerTree*>;
 
-        bool focus_client_with_xid(const xcb_window_t xwin);
+        std::optional<commands::FocusWindow> focus_client_with_xid(const xcb_window_t xwin);
 
         // This gets all clients as a vector of references (not the v/h split containers that is)
         template<typename P>
@@ -114,9 +121,7 @@ namespace cx::workspace
         template<typename XCBMapFn>
         void apply_frame_attributes(XCBMapFn fn)
         {
-            in_order_window_map(m_root, [fn](auto window) {
-              fn(window.frame_id);
-            });
+            in_order_window_map(m_root, [fn](auto window) { fn(window.frame_id); });
         }
     };
 } // namespace cx::workspace

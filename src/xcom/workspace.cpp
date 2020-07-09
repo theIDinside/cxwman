@@ -2,6 +2,7 @@
 #include <cassert>
 #include <stack>
 #include <utility>
+#include <xcom/commands/manager_command.hpp>
 #include <xcom/core.hpp>
 #include <xcom/workspace.hpp>
 
@@ -18,18 +19,18 @@ namespace cx::workspace
     }
 
     // FIXME: If all windows get unmapped, and a new client try to register, we crash, sometime inside or almost directly after this method
-    auto Workspace::register_window(Window window, bool tiled) -> std::optional<SplitConfigurations>
+    auto Workspace::register_window(Window window, bool tiled) -> std::optional<commands::ConfigureWindows>
     {
         if(tiled) {
             if(!foc_con->is_window()) {
                 foc_con->push_client(window);
-                return SplitConfigurations{foc_con->client.value()};
+                return commands::ConfigureWindows{foc_con->client.value()};
             } else {
                 foc_con->push_client(window);
                 auto existing_win = foc_con->left->client.value();
                 auto new_win = foc_con->right->client.value();
                 foc_con = foc_con->right.get();
-                return SplitConfigurations{existing_win, new_win};
+                return commands::ConfigureWindows{existing_win, new_win};
             }
         } else {
             m_floating_containers.push_back(std::move(window));
@@ -47,22 +48,24 @@ namespace cx::workspace
                 if(!t->parent->is_root()) {
                     if(left_sibling.get() == t) {
                         // FIXME: Workspace's FOCUS POINTER must be set somewhere
-                        auto ptr_to_tree_pos = promote_child(std::move(t->parent->right), t->parent);
+                        auto ptr_to_tree_pos = promote_child(std::move(t->parent->right));
                         if(set_new_focus)
                             foc_con = ptr_to_tree_pos;
                     } else if(right_sibling.get() == t) {
-                        auto ptr_to_tree_pos = promote_child(std::move(t->parent->left), t->parent);
+                        auto ptr_to_tree_pos = promote_child(std::move(t->parent->left));
                         if(set_new_focus)
                             foc_con = ptr_to_tree_pos;
                     }
                 } else {
                     auto root_tag = m_root->tag;
                     if(left_sibling.get() == t) {
-                        if(set_new_focus) foc_con = t->parent->right.get();
+                        if(set_new_focus)
+                            foc_con = t->parent->right.get();
                         anchor_new_root(std::move(t->parent->right), root_tag);
                         left_sibling.reset();
                     } else if(right_sibling.get() == t) {
-                        if(set_new_focus) foc_con = t->parent->left.get();
+                        if(set_new_focus)
+                            foc_con = t->parent->left.get();
                         anchor_new_root(std::move(t->parent->left), root_tag);
                         right_sibling.reset();
                     }
@@ -81,7 +84,7 @@ namespace cx::workspace
 
     auto Workspace::find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>
     {
-        return in_order_traverse_find(m_root, [xwin](auto& c_tree) {
+        return tree_in_order_find(m_root, [xwin](auto& c_tree) {
             if(c_tree->is_window())
                 return c_tree->client->client_id == xwin || c_tree->client->frame_id == xwin;
             else
@@ -137,7 +140,7 @@ namespace cx::workspace
         }
         if(!geom::is_inside(target_space, foc_con->geometry)) {
             auto target_client =
-                in_order_traverse_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+                tree_in_order_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
             if(target_client) {
                 move_client(foc_con, *target_client);
             } else {
@@ -147,56 +150,64 @@ namespace cx::workspace
             DBGLOG("Target position is inside source geometry. No move {}", "");
         }
     }
-    void Workspace::increase_size_focused(cx::events::ResizeArgument arg)
+    auto Workspace::increase_size_focused(cx::events::ResizeArgument arg) -> commands::UpdateWindows
     {
         using Dir = cx::events::ScreenSpaceDirection;
         using Vector = Pos; // To just illustrate further what Pos actually represents in this function
         switch(arg.dir) {
-        case Dir::UP:
-            increase_height(arg.get_value(),
-                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
-            break;
-        case Dir::DOWN:
-            increase_height(arg.get_value(),
-                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
-            break;
-        case Dir::LEFT:
-            increase_width(arg.get_value(),
-                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
-            break;
-        case Dir::RIGHT:
-            increase_width(arg.get_value(),
-                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
-            break;
+        case Dir::UP: {
+            auto items = increase_height(
+                arg.get_value(), [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
+            return commands::UpdateWindows{items};
+        }
+        case Dir::DOWN: {
+            auto items = increase_height(arg.get_value(),
+                                         [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
+            return commands::UpdateWindows{items};
+        }
+        case Dir::LEFT: {
+            auto items = increase_width(
+                arg.get_value(), [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
+            return commands::UpdateWindows{items};
+        }
+        case Dir::RIGHT: {
+            auto items = increase_width(
+                arg.get_value(), [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
+            return commands::UpdateWindows{items};
+        }
         }
     }
 
-    void Workspace::decrease_size_focused(cx::events::ResizeArgument arg)
+    auto Workspace::decrease_size_focused(cx::events::ResizeArgument arg) -> commands::UpdateWindows
     {
         using Dir = cx::events::ScreenSpaceDirection;
         using Vector = Pos; // To just illustrate further what Pos actually represents in this function
         switch(arg.dir) {
-        case Dir::UP:
-            decrease_height(arg.get_value(),
-                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
-            break;
-        case Dir::DOWN:
-            decrease_height(arg.get_value(),
-                            [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
-            break;
-        case Dir::LEFT:
-            decrease_width(arg.get_value(),
-                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
-            break;
-        case Dir::RIGHT:
-            decrease_width(arg.get_value(),
-                           [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
-            break;
+        case Dir::UP: {
+            auto items = decrease_height(
+                arg.get_value(), [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->right.get() == child; });
+            return commands::UpdateWindows{items};
+        }
+        case Dir::DOWN: {
+            auto items = decrease_height(arg.get_value(),
+                                         [](auto& child, auto& parent) { return parent->policy == Layout::Vertical && parent->left.get() == child; });
+            return commands::UpdateWindows{items};
+        }
+        case Dir::LEFT: {
+            auto items = decrease_width(
+                arg.get_value(), [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->right.get() == child; });
+            return commands::UpdateWindows{items};
+        }
+        case Dir::RIGHT: {
+            auto items = decrease_width(
+                arg.get_value(), [](auto& child, auto& parent) { return parent->policy == Layout::Horizontal && parent->left.get() == child; });
+            return commands::UpdateWindows{items};
+        }
         }
     }
 
     template<typename Predicate>
-    void Workspace::increase_width(int steps, Predicate child_of)
+    auto Workspace::increase_width(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
         auto found = false;
         auto [child, parent] = focused().begin_bubble();
@@ -205,11 +216,13 @@ namespace cx::workspace
                 found = true;
                 parent->split_position.x += steps;
                 parent->update_subtree_geometry();
+                return collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
             }
         }
+        return {};
     }
     template<typename Predicate>
-    void Workspace::increase_height(int steps, Predicate child_of)
+    auto Workspace::increase_height(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
         auto found = false;
         /// this would otherwise become:
@@ -219,11 +232,13 @@ namespace cx::workspace
                 found = true;
                 parent->split_position.y += steps;
                 parent->update_subtree_geometry();
+                return collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
             }
         }
+        return std::vector<ContainerTree*>{};
     }
     template<typename Predicate>
-    void Workspace::decrease_width(int steps, Predicate child_of)
+    auto Workspace::decrease_width(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
         auto found = false;
         auto [child, parent] = focused().begin_bubble();
@@ -232,11 +247,14 @@ namespace cx::workspace
                 found = true;
                 parent->split_position.x -= steps;
                 parent->update_subtree_geometry();
+                auto update = collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
+                return update;
             }
         }
+        return std::vector<ContainerTree*>{};
     }
     template<typename Predicate>
-    void Workspace::decrease_height(int steps, Predicate child_of)
+    auto Workspace::decrease_height(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
         auto found = false;
         /// this would otherwise become:
@@ -246,13 +264,15 @@ namespace cx::workspace
                 found = true;
                 parent->split_position.y -= steps;
                 parent->update_subtree_geometry();
+                return collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
             }
         }
+        return std::vector<ContainerTree*>{};
     }
 
-    bool Workspace::focus_client_with_xid(const xcb_window_t xwin)
+    std::optional<commands::FocusWindow> Workspace::focus_client_with_xid(const xcb_window_t xwin)
     {
-        auto c = in_order_traverse_find(m_root, [xwin](auto& tree) {
+        auto c = tree_in_order_find(m_root, [xwin](auto& tree) {
             if(tree->is_window()) {
                 return tree->client->client_id == xwin || tree->client->frame_id == xwin;
             }
@@ -262,10 +282,11 @@ namespace cx::workspace
             auto client = c.value()->client.value();
             DBGLOG("Focused client: [Frame: {}, Client: {}] @ (x:{},y:{}) (w:{} x h:{})", client.frame_id, client.client_id, client.geometry.x(),
                    client.geometry.y(), client.geometry.width, client.geometry.height);
+            auto de_focused_window = foc_con->client.value();
             foc_con = *c;
-            return true;
+            return commands::FocusWindow{client, de_focused_window, 0x00ff00, 0xff0000};
         } else {
-            return false;
+            return {};
         }
     }
 

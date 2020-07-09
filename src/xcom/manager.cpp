@@ -302,20 +302,14 @@ namespace cx
             DBGLOG("No workspace container was created. {}!", "Error");
             std::abort();
         }
-        if(auto layout_attributes = focused_ws->register_window(win); layout_attributes) {
-            auto split_cfg = layout_attributes.value();
-            if(split_cfg.existing_window && split_cfg.new_window) {
-                configure_window_geometry(split_cfg.existing_window.value());
-                configure_window_geometry(split_cfg.new_window.value());
-            } else if(!split_cfg.existing_window && split_cfg.new_window) {
-                configure_window_geometry(split_cfg.new_window.value());
-            }
+        if(auto configure_command = focused_ws->register_window(win); configure_command) {
+            configure_command->perform(get_conn());
             cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
             cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
             cookies[4] = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
                                                  XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
             cookies[5] = xcb_grab_button_checked(get_conn(), 1, frame_id, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
-                                    XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_ANY);
+                                                 XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_ANY);
             process_request(cookies[0], win, [](auto w) { cx::println("Failed to create X window/frame"); });
             process_request(cookies[1], win, [](auto w) { cx::println("Re-parenting window {} to frame {} failed", w.client_id, w.frame_id); });
             process_request(cookies[2], win, [](auto w) { cx::println("Failed to map frame {}", w.frame_id); });
@@ -355,7 +349,8 @@ namespace cx
         // TODO: Fix so that borders show up on the right side and bottom side of windows.
         cx::uint frame_vals[]{(cx::uint)x, (cx::uint)y, (cx::uint)width, (cx::uint)height};
 
-        auto cookies = CONFIG_CX_WINDOW(window, frame_properties, window.geometry.xcb_value_list_border_adjust(1).data(), child_properties, child_values);
+        auto cookies =
+            CONFIG_CX_WINDOW(window, frame_properties, window.geometry.xcb_value_list_border_adjust(1).data(), child_properties, child_values);
         for(const auto& cookie : cookies) {
             if(auto err = xcb_request_check(get_conn(), cookie); err) {
                 DBGLOG("Failed to configure item {}. Error code: {}", err->resource_id, err->error_code);
@@ -369,6 +364,7 @@ namespace cx
         setup();
         setup_input_functions();
         this->m_running = true;
+        const auto& c = get_conn();
         while(m_running) {
             auto evt = xcb_wait_for_event(get_conn());
             if(evt == nullptr) {
@@ -394,30 +390,12 @@ namespace cx
                 }
                 case XCB_BUTTON_PRESS: {
                     auto e = (xcb_button_press_event_t*)evt;
-                    if(e->event == this->x_detail.root_window) {
-                        if(!focused_ws->focus_client_with_xid(e->child)) {
-                            // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
-                            status_bar->clicked_workspace(e->child, [this](auto workspace_id) { this->change_workspace(workspace_id); });
-                        } else {
-                            /* TODO: Implement a "focused" window property so one can clearly see which window the window manager has focused
-                             * For coloring something like this is used:
-                             * int color[]{0x00ff00};
-                             * auto ck = xcb_change_window_attributes_checked(get_conn(), focused_ws->focused().client->frame_id, XCB_CW_BORDER_PIXEL, color);
-                             * if(auto err = xcb_request_check(get_conn(), ck); err) {}
-                             */
-                        }
+                    auto id = (e->event == x_detail.root_window) ? e->child : e->event;
+                    if(auto cmd = focused_ws->focus_client_with_xid(id); cmd) {
+                        // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
+                        execute(&cmd.value());
                     } else {
-                        if(!focused_ws->focus_client_with_xid(e->event)) {
-                            // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
-                            status_bar->clicked_workspace(e->event, [this](auto workspace_id) { this->change_workspace(workspace_id); });
-                        } else {
-                            /* TODO: Implement a "focused" window property so one can clearly see which window the window manager has focused
-                             * For coloring something like this is used:
-                             * int color[]{0x00ff00};
-                             * auto ck = xcb_change_window_attributes_checked(get_conn(), focused_ws->focused().client->frame_id, XCB_CW_BORDER_PIXEL, color);
-                             * if(auto err = xcb_request_check(get_conn(), ck); err) {}
-                             */
-                        }
+                        status_bar->clicked_workspace(id, [this](auto workspace_id) { this->change_workspace(workspace_id); });
                     }
                     break;
                 }
@@ -505,14 +483,16 @@ namespace cx
     auto Manager::increase_size_focused(cx::events::EventArg arg) -> void
     {
         auto resize_arg = std::get<cx::events::ResizeArgument>(arg.arg);
-        focused_ws->increase_size_focused(resize_arg);
-        focused_ws->display_update(get_conn());
+        auto cmd = focused_ws->increase_size_focused(resize_arg);
+        execute(&cmd);
+        // focused_ws->display_update(get_conn());
     }
     auto Manager::decrease_size_focused(cx::events::EventArg arg) -> void
     {
         auto size_arg = std::get<cx::events::ResizeArgument>(arg.arg);
-        focused_ws->decrease_size_focused(size_arg);
-        focused_ws->display_update(get_conn());
+        auto cmd = focused_ws->decrease_size_focused(size_arg);
+        execute(&cmd);
+        // focused_ws->display_update(get_conn());
     }
     auto Manager::change_workspace(std::size_t ws_id) -> void
     {
@@ -543,6 +523,11 @@ namespace cx
         if(auto err = xcb_request_check(get_conn(), cookie); err) {
             cx::println("Failed to kill client");
         }
+    }
+    void Manager::execute(commands::ManagerCommand* cmd)
+    {
+        cx::println("Executing command {}", cmd->command_name());
+        cmd->perform(get_conn());
     }
 
     auto process_x_geometry(xcb_connection_t* c, xcb_window_t window) -> std::optional<geom::Geometry>

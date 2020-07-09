@@ -168,14 +168,14 @@ namespace cx::workspace
             DBGLOG("Root windows can not be moved! {}", "");
         }
     }
-    auto promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent) -> ContainerTree*
+    auto promote_child(std::unique_ptr<ContainerTree> child) -> ContainerTree*
     {
-        if(parent->is_root()) {
+        if(child->parent->is_root()) {
             cx::println("Promoting child to ROOT parent not yet implemented. PANICKING");
             std::abort();
         } else {
-            auto grand_parent = parent->parent;
-            if(grand_parent->left.get() == parent) {
+            auto grand_parent = child->parent->parent;
+            if(grand_parent->left.get() == child->parent) {
                 child->parent = grand_parent;
                 grand_parent->left.swap(child);
                 grand_parent->update_subtree_geometry();

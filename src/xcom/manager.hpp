@@ -13,6 +13,8 @@
 #include <datastructure/geometry.hpp>
 
 #include "events.hpp"
+#include <stack>
+#include <xcom/commands/manager_command.hpp>
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
 #include <xcom/status_bar.hpp>
@@ -31,7 +33,7 @@ namespace cx
 
     namespace ws = cx::workspace;
     namespace fs = std::filesystem;
-
+    namespace cmd = cx::commands;
     /// This also free's the memory pointed to by reply
     auto process_x_geometry(xcb_connection_t* c, xcb_window_t window) -> std::optional<geom::Geometry>;
 
@@ -128,6 +130,8 @@ namespace cx
         auto kill_client(cx::events::EventArg arg) -> void;
 
         auto change_workspace(std::size_t ws_id) -> void;
+
+        void execute(commands::ManagerCommand* cmd);
 
         // These are data types that are needed to talk to X. It's none of the logic, that our Window Manager
         // actually needs.

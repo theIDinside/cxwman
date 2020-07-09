@@ -74,14 +74,14 @@ namespace cx::workspace
         void rotate_children();
 
         template<typename Predicate>
-        friend auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>;
+        friend auto tree_in_order_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>;
         // run MapFn on each item in the tree, that is of window "type"
         template<typename MapFn>
         friend auto in_order_window_map(std::unique_ptr<ContainerTree>& tree_node, MapFn fn) -> void;
         friend void move_client(ContainerTree* from, ContainerTree* to);
         // Promote's child to parent. This function also calls update_subtree_geometry on promoted child so all it's children get proper
         // geometries
-        friend auto promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent) -> ContainerTree*;
+        friend auto promote_child(std::unique_ptr<ContainerTree> child) -> ContainerTree*;
         static auto make_root(const std::string& container_tag, geom::Geometry geometry, Layout layout) -> TreeOwned;
 
       protected:
@@ -91,7 +91,7 @@ namespace cx::workspace
     using TreeRef = std::unique_ptr<ContainerTree>&;
     using TreeOwned = std::unique_ptr<ContainerTree>;
     void move_client(ContainerTree* from, ContainerTree* to);
-    [[maybe_unused]] auto promote_child(std::unique_ptr<ContainerTree> child, ContainerTree* parent) -> ContainerTree*;
+    [[maybe_unused]] auto promote_child(std::unique_ptr<ContainerTree> child) -> ContainerTree*;
     std::unique_ptr<ContainerTree> make_tree(std::string ws_tag);
 
     template<typename MapFn>
@@ -106,7 +106,7 @@ namespace cx::workspace
     }
 
     template<typename Predicate>
-    auto in_order_traverse_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>
+    auto tree_in_order_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<ContainerTree*>
     {
         if(!tree)
             return {};
@@ -114,24 +114,68 @@ namespace cx::workspace
             cx::println("Found window!");
             return tree.get();
         } else {
-            if(auto res = in_order_traverse_find(tree->left, p); res)
+            if(auto res = tree_in_order_find(tree->left, p); res)
                 return res;
-            if(auto res = in_order_traverse_find(tree->right, p); res)
+            if(auto res = tree_in_order_find(tree->right, p); res)
                 return res;
             return {};
         }
     }
 
     template<typename Predicate>
-    auto in_order_collect_by(std::unique_ptr<ContainerTree>& tree, std::vector<ContainerTree*>& result, Predicate p)
+    auto window_in_order_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<workspace::Window>
     {
         if(!tree)
+            return {};
+        if(tree->is_window() && p(tree)) {
+            cx::println("Found window!");
+            return tree->client;
+        } else {
+            if(auto res = tree_in_order_find(tree->left, p); res)
+                return res;
+            if(auto res = tree_in_order_find(tree->right, p); res)
+                return res;
+            return {};
+        }
+    }
+
+    template<typename Predicate>
+    auto collect_treenodes_by(ContainerTree* tree, Predicate p)
+    {
+        std::vector<ContainerTree*> res{};
+        auto factory = [p, &res](ContainerTree* tree) -> void {
+            auto inner = [p, &res](ContainerTree* t, auto& self) mutable {
+                if(!t) return;
+                self(t->left.get(), self);
+                if(p(t)) res.push_back(t);
+                self(t->right.get(), self);
+            };
+            return inner(tree, inner);
+        };
+        factory(tree);
+/*
+        if(!tree)
             return;
-        in_order_collect_by(tree->left, result, p);
+        collect_treenodes_by(tree->left, result, p);
         if(p(tree)) {
             result.push_back(tree.get());
         }
-        in_order_collect_by(tree->right, result, p);
+        collect_treenodes_by(tree->right, result, p);
+*/
+        return res;
+    }
+
+    /// Collects all windows below root node tree, according to predicate p. If no lambda is passed in, the default predicate returns all windows
+    template<typename Predicate>
+    auto collect_windows_by(std::unique_ptr<ContainerTree>& tree, std::vector<Window>& result, Predicate p = [](auto& tree) { return true; })
+    {
+        if(!tree)
+            return;
+        collect_windows_by(tree->left, result, p);
+        if(tree->is_window() && p(tree)) {
+            result.push_back(tree->client.value());
+        }
+        collect_windows_by(tree->right, result, p);
     }
 
 } // namespace cx::workspace
