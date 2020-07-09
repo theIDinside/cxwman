@@ -209,11 +209,9 @@ namespace cx::workspace
     template<typename Predicate>
     auto Workspace::increase_width(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
-        auto found = false;
         auto [child, parent] = focused().begin_bubble();
-        for(; !child->is_root() && !found; next_up(child, parent)) {
+        for(; !child->is_root(); next_up(child, parent)) {
             if(child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                found = true;
                 parent->split_position.x += steps;
                 parent->update_subtree_geometry();
                 return collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
@@ -224,12 +222,10 @@ namespace cx::workspace
     template<typename Predicate>
     auto Workspace::increase_height(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
-        auto found = false;
         /// this would otherwise become:
         /// auto child = foc_con; auto parent = foc_con->parent;
-        for(auto [child, parent] = focused().begin_bubble(); !child->is_root() && !found; next_up(child, parent)) {
+        for(auto [child, parent] = focused().begin_bubble(); !child->is_root(); next_up(child, parent)) {
             if(child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                found = true;
                 parent->split_position.y += steps;
                 parent->update_subtree_geometry();
                 return collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
@@ -240,11 +236,9 @@ namespace cx::workspace
     template<typename Predicate>
     auto Workspace::decrease_width(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
-        auto found = false;
         auto [child, parent] = focused().begin_bubble();
-        for(; !child->is_root() && !found; next_up(child, parent)) {
+        for(; !child->is_root(); next_up(child, parent)) {
             if(child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                found = true;
                 parent->split_position.x -= steps;
                 parent->update_subtree_geometry();
                 auto update = collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
@@ -256,12 +250,10 @@ namespace cx::workspace
     template<typename Predicate>
     auto Workspace::decrease_height(int steps, Predicate child_of) -> std::vector<ContainerTree*>
     {
-        auto found = false;
         /// this would otherwise become:
         /// auto child = foc_con; auto parent = foc_con->parent;
-        for(auto [child, parent] = focused().begin_bubble(); !child->is_root() && !found; next_up(child, parent)) {
+        for(auto [child, parent] = focused().begin_bubble(); !child->is_root(); next_up(child, parent)) {
             if(child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
-                found = true;
                 parent->split_position.y -= steps;
                 parent->update_subtree_geometry();
                 return collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
