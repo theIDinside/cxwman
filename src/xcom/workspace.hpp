@@ -8,7 +8,6 @@
 #include <coreutils/core.hpp>
 #include <datastructure/container.hpp>
 #include <datastructure/geometry.hpp>
-
 #include <xcom/commands/manager_command.hpp>
 #include <xcom/constants.hpp>
 #include <xcom/events.hpp>
@@ -72,7 +71,7 @@ namespace cx::workspace
         /// rotates the focused client tile-pair positions
         void rotate_focus_pair() const;
         // This moves this window from it's anchor, in vector's dir.
-        void move_focused(cx::events::ScreenSpaceDirection dir);
+        auto move_focused(geom::ScreenSpaceDirection dir) -> commands::MoveWindow;
         /// Changes the currently focused() item to it's sibling (or root if no sibling exists)
         void focus_pointer_to_sibling();
         /// Increases width or height of window, in all four directions, depending on the parameter arg

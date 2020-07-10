@@ -2,14 +2,14 @@
 // Created by cx on 2020-06-20.
 //
 #pragma once
-#include <datastructure/geometry.hpp>
+
 #include <variant>
+#include <datastructure/geometry.hpp>
 
 namespace cx::events
 {
-    enum ScreenSpaceDirection { LEFT, RIGHT, UP, DOWN };
 
-    using Dir = ScreenSpaceDirection;
+    using Dir = geom::ScreenSpaceDirection;
     using Pos = geom::Position;
     using Geo = geom::Geometry;
     enum class ResizeType {
@@ -19,7 +19,7 @@ namespace cx::events
 
     struct ResizeArgument {
         using Type = ResizeType;
-        ScreenSpaceDirection dir;
+        Dir dir;
         cx::uint step{10};
         ResizeType type;
         /// Translates values into screen space, where down is -y

@@ -1,6 +1,7 @@
 #include <cassert>
 #include <datastructure/geometry.hpp>
 
+
 namespace cx::geom
 {
 
@@ -88,5 +89,39 @@ namespace cx::geom
 
     Geometry operator+(const Geometry& lhs, const Position& rhs) { return Geometry{lhs.pos.x + rhs.x, lhs.pos.y + rhs.y, lhs.width, lhs.height}; }
     Geometry operator*(const Geometry& lhs, int rhs) { return Geometry{lhs.pos, lhs.width * rhs, lhs.height * rhs}; }
+
+    Position middle_of_side(const Geometry& g, ScreenSpaceDirection direction) {
+        auto pos = g.pos;
+        switch(direction) {
+        case Dir::LEFT: {
+            pos.y += g.height / 2;
+            return pos;
+        }
+        case Dir::RIGHT:{
+            pos.x += g.width;
+            pos.y += g.height / 2;
+            return pos;
+        }
+        case Dir::UP: {
+            pos.x += g.width / 2;
+            return pos;
+        }
+        case Dir::DOWN: {
+            pos.x += g.width / 2;
+            pos.y += g.height;
+            return pos;
+        }
+        }
+    }
+
+    Position middle_of_top(const Geometry& g) {
+        auto pos = g.pos;
+        pos.x += g.width / 2;
+        return pos;
+    }
+    Position center(const Geometry& g) {
+        auto pos = g.pos + geom::Vector{g.width / 2, g.height / 2};
+        return pos;
+    }
 
 } // namespace cx::geom

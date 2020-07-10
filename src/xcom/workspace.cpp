@@ -1,4 +1,5 @@
-#include "events.hpp"
+#include <xcom/events.hpp>
+#include <datastructure//geometry.hpp>
 #include <cassert>
 #include <stack>
 #include <utility>
@@ -118,41 +119,13 @@ namespace cx::workspace
 
     void Workspace::rotate_focus_pair() const { foc_con->rotate_children(); }
 
-    void Workspace::move_focused(cx::events::ScreenSpaceDirection dir)
+    auto Workspace::move_focused(geom::ScreenSpaceDirection dir) -> commands::MoveWindow
     {
-        using Dir = cx::events::ScreenSpaceDirection;
-        using Vec = cx::geom::Vector;
-        Pos target_space{0, 0};
-        const auto& bounds = m_root->geometry;
-        switch(dir) {
-        case Dir::UP:
-            target_space = geom::wrapping_add(foc_con->center_of_top(), Vec{0, -10}, bounds, 10);
-            break;
-        case Dir::DOWN:
-            target_space = geom::wrapping_add(foc_con->center_of_top(), Vec{0, foc_con->geometry.height + 10}, bounds, 10);
-            break;
-        case Dir::LEFT:
-            target_space = geom::wrapping_add(foc_con->get_center() + Vec{-1 * (foc_con->geometry.width / 2), 0}, Vec{-10, 0}, bounds, 10);
-            break;
-        case Dir::RIGHT:
-            target_space = geom::wrapping_add(foc_con->get_center() + Vec{foc_con->geometry.width / 2, 0}, Vec{10, 0}, bounds, 10);
-            break;
-        }
-        if(!geom::is_inside(target_space, foc_con->geometry)) {
-            auto target_client =
-                tree_in_order_find(m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
-            if(target_client) {
-                move_client(foc_con, *target_client);
-            } else {
-                DBGLOG("Could not find a suitable window to swap with. Position: ({},{})", target_space.x, target_space.y);
-            }
-        } else {
-            DBGLOG("Target position is inside source geometry. No move {}", "");
-        }
+        return commands::MoveWindow{foc_con->client.value(), dir, this};
     }
     auto Workspace::increase_size_focused(cx::events::ResizeArgument arg) -> commands::UpdateWindows
     {
-        using Dir = cx::events::ScreenSpaceDirection;
+        using Dir = geom::ScreenSpaceDirection;
         using Vector = Pos; // To just illustrate further what Pos actually represents in this function
         switch(arg.dir) {
         case Dir::UP: {
@@ -180,7 +153,7 @@ namespace cx::workspace
 
     auto Workspace::decrease_size_focused(cx::events::ResizeArgument arg) -> commands::UpdateWindows
     {
-        using Dir = cx::events::ScreenSpaceDirection;
+        using Dir = geom::ScreenSpaceDirection;
         using Vector = Pos; // To just illustrate further what Pos actually represents in this function
         switch(arg.dir) {
         case Dir::UP: {
@@ -241,8 +214,7 @@ namespace cx::workspace
             if(child_of(child, parent)) { // Means it is this "parent" that needs a _decrease_ in size from it's left
                 parent->split_position.x -= steps;
                 parent->update_subtree_geometry();
-                auto update = collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
-                return update;
+                return collect_treenodes_by(parent, [](auto& t) { return t->is_window(); });
             }
         }
         return std::vector<ContainerTree*>{};

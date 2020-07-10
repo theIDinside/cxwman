@@ -476,24 +476,23 @@ namespace cx
 
     auto Manager::move_focused(cx::events::EventArg arg) -> void
     {
-        auto cmd_arg = std::get<cx::events::ScreenSpaceDirection>(arg.arg);
-        focused_ws->move_focused(cmd_arg);
-        focused_ws->display_update(get_conn());
+        auto cmd_arg = std::get<geom::ScreenSpaceDirection>(arg.arg);
+        auto move_command = focused_ws->move_focused(cmd_arg);
+        execute(&move_command);
     }
     auto Manager::increase_size_focused(cx::events::EventArg arg) -> void
     {
         auto resize_arg = std::get<cx::events::ResizeArgument>(arg.arg);
         auto cmd = focused_ws->increase_size_focused(resize_arg);
         execute(&cmd);
-        // focused_ws->display_update(get_conn());
     }
     auto Manager::decrease_size_focused(cx::events::EventArg arg) -> void
     {
         auto size_arg = std::get<cx::events::ResizeArgument>(arg.arg);
         auto cmd = focused_ws->decrease_size_focused(size_arg);
         execute(&cmd);
-        // focused_ws->display_update(get_conn());
     }
+
     auto Manager::change_workspace(std::size_t ws_id) -> void
     {
         if(ws_id < m_workspaces.size()) {

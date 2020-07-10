@@ -19,6 +19,7 @@
 namespace cx::workspace
 {
     class ContainerTree;
+    class Workspace;
 }
 
 namespace cx::commands
@@ -104,6 +105,17 @@ namespace cx::commands
         void perform(xcb_connection_t* c) const override;
 
       private:
+    };
+
+    class MoveWindow : public WindowCommand {
+      public:
+        MoveWindow(ws::Window focused_window, geom::ScreenSpaceDirection dir, ws::Workspace* ws) : WindowCommand(std::move(focused_window), "Move Window"), direction(dir), workspace{ws} {}
+        ~MoveWindow() override = default;
+        void perform(xcb_connection_t* c) const override;
+
+      private:
+        geom::ScreenSpaceDirection direction;
+        ws::Workspace* workspace; /// Workspace where focused_window & window_swap_with exists
     };
 
     class UpdateWindows : public ManagerCommand

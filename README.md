@@ -13,6 +13,7 @@
         - [ ] How does pixmaps work?
    - [ ] Logging of various X information (perhaps glance at basic_wm?)
    - [ ] Implement some form of [docking container](#docking-container) window, that will contain clickable widgets, for instance "go to workspace x"
+   - [ ] IPC [docking container](#ipc)
    
 ### User action features
    - [x] Rotate window left/right
@@ -29,16 +30,22 @@
    - [x] Change workspace
    - [ ] Tag workspaces so switching between them can be done via key-combos
    - [ ] Open run CXWMAN command (as an input box or something). For instance; kill x, or open x on ws1 things of that nature
+ 
 ### User command input window
-
+    This will be implemented as a GTK (or any other toolkit) application.
 #### Feature ideas
    - Input box, which can translate user input to commands currently bound to global key-combos
    - Execute shell commands 
-
+    
 
 ### Docking container
 Similar to that of windows or linux. Containing things like what workspace one is on, or showing sys applets etc. 
 Simple stuff to begin with.
+
+### IPC
+IPC will be implemented using Linux's awesome message queues. The reason why I won't use sockets or other things here,
+is because it seems unnecessarily complex for what I actually need to achieve. Using message queues, we also get
+thread safety built in, another huge perk. 
 
 ## Todo's implementation details
    - [x] Grab WM Hints and WM atoms etc. Can we get client names, so we can use them as identifiers?

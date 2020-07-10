@@ -8,13 +8,13 @@ namespace cx::events
     int ResizeArgument::get_value() const
     {
         switch(dir) {
-        case LEFT:
+        case Dir::LEFT:
             return -1 * static_cast<int>(step);
-        case RIGHT:
+        case Dir::RIGHT:
             return static_cast<int>(step);
-        case UP:
+        case Dir::UP:
             return -1 * static_cast<int>(step);
-        case DOWN:
+        case Dir::DOWN:
             return static_cast<int>(step);
         }
     }

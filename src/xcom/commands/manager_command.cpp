@@ -7,6 +7,7 @@
 #include <datastructure/container.hpp>
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
+#include <xcom/workspace.hpp>
 
 namespace cx::commands
 {
@@ -87,5 +88,59 @@ namespace cx::commands
         }
 #endif
         std::transform(std::begin(nodes), std::end(nodes), std::back_inserter(windows), [](auto t) { return t->client.value(); });
+    }
+    void MoveWindow::perform(xcb_connection_t* c) const
+    {
+        using Dir = geom::ScreenSpaceDirection;
+        using Vec = cx::geom::Vector;
+        events::Pos target_space{0, 0};
+        const auto& bounds = workspace->m_root->geometry;
+        auto window_result = workspace->find_window(window.client_id);
+        if(window_result) {
+            switch(direction) {
+            case Dir::UP:
+                target_space = geom::wrapping_add(middle_of_side(window.geometry, direction), Vec::axis_aligned(direction, 10), bounds, 10);
+                break;
+            case Dir::DOWN:
+                target_space = geom::wrapping_add(middle_of_side(window.geometry, direction), Vec::axis_aligned(direction, 10), bounds, 10);
+                break;
+            case Dir::LEFT:
+                target_space = geom::wrapping_add(middle_of_side(window.geometry, direction), Vec::axis_aligned(direction, 10), bounds, 10);
+                break;
+            case Dir::RIGHT:
+                target_space = geom::wrapping_add(middle_of_side(window.geometry, direction), Vec::axis_aligned(direction, 10), bounds, 10);
+                break;
+            }
+            if(!geom::is_inside(target_space, window.geometry)) {
+                auto target_client = tree_in_order_find(
+                    workspace->m_root, [&](auto& tree) { return geom::is_inside(target_space, tree->geometry) && tree->is_window(); });
+                if(target_client) {
+                    auto window_node = window_result.value();
+                    move_client(window_node, *target_client);
+                    auto mapper = [c](auto& window) {
+                        // auto window = window_opt;
+                        namespace xcm = cx::xcb_config_masks;
+                        const auto& [x, y, width, height] = window.geometry.xcb_value_list();
+                        auto frame_properties = xcm::TELEPORT;
+                        auto child_properties = xcm::RESIZE;
+                        cx::uint frame_values[] = {(cx::uint)x, (cx::uint)y, (cx::uint)width, (cx::uint)height};
+                        cx::uint child_values[] = {(cx::uint)width, (cx::uint)height};
+                        auto cookies =
+                            std::array<xcb_void_cookie_t, 2>{xcb_configure_window_checked(c, window.frame_id, frame_properties, frame_values),
+                                                             xcb_configure_window_checked(c, window.client_id, child_properties, child_values)};
+                        for(const auto& cookie : cookies) {
+                            if(auto err = xcb_request_check(c, cookie); err) {
+                                DBGLOG("Failed to configure item {}. Error code: {}", err->resource_id, err->error_code);
+                            }
+                        }
+                    };
+                    in_order_window_map(workspace->m_root, mapper);
+                } else {
+                    DBGLOG("Could not find a suitable window to swap with. Position: ({},{})", target_space.x, target_space.y);
+                }
+            } else {
+                DBGLOG("Target position is inside source geometry. No move {}", "");
+            }
+        }
     }
 } // namespace cx::commands
