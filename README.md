@@ -43,8 +43,8 @@ Similar to that of windows or linux. Containing things like what workspace one i
 Simple stuff to begin with.
 
 ### IPC
-IPC will be implemented using Linux's awesome message queues. The reason why I won't use sockets or other things here,
-is because it seems unnecessarily complex for what I actually need to achieve. Using message queues, we also get
+IPC will be implemented using Linux's awesome payload queues. The reason why I won't use sockets or other things here,
+is because it seems unnecessarily complex for what I actually need to achieve. Using payload queues, we also get
 thread safety built in, another huge perk. 
 
 ## Todo's implementation details

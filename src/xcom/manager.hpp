@@ -21,7 +21,7 @@
 #include <xcom/utility/config.hpp>
 #include <xcom/workspace.hpp>
 #include <xcom/xinit.hpp>
-
+#include <ipc/ipc.hpp>
 namespace cx
 {
 

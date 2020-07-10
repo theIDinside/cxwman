@@ -42,5 +42,5 @@ namespace cx
 #ifdef DEBUGGING
 #    define DBGLOG(message, ...) LOG(message, __VA_ARGS__)
 #else
-#    define DBGLOG(message, ...) NOLOG()
+#    define DBGLOG(payload, ...) NOLOG()
 #endif

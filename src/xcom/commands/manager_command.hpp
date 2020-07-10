@@ -20,7 +20,7 @@ namespace cx::workspace
 {
     class ContainerTree;
     class Workspace;
-}
+} // namespace cx::workspace
 
 namespace cx::commands
 {
@@ -41,12 +41,7 @@ namespace cx::commands
     class WindowCommand : public ManagerCommand
     {
       protected:
-        /*
-         * TODO: Maybe move this into a static global somewhere that gets initialized at start up? When I did that, I just seemed to encounter more
-         *  problems with the pointer not living across T.Us. properly and the application would segfault. It would have to be "extern", but once
-         *  again, introduces things I don't see a point in having for the convenience of not having to pass around this pointer to the connection
-         */
-        ws::Window window;
+        ws::Window window; /// The window which the command is to be acted on (i.e. the focused window)
 
       public:
         explicit WindowCommand(ws::Window win, std::string_view cmd_name) noexcept : ManagerCommand(cmd_name), window(std::move(win)) {}
@@ -92,7 +87,6 @@ namespace cx::commands
         }
         ~ConfigureWindows() override = default;
         void perform(xcb_connection_t* c) const override;
-        void set_some_value(int j); /// This way we can set arbitrary values when we are not accessing this behind a WindowCommand*
       private:
         std::optional<ws::Window> existing_window;
     };
@@ -107,9 +101,13 @@ namespace cx::commands
       private:
     };
 
-    class MoveWindow : public WindowCommand {
+    class MoveWindow : public WindowCommand
+    {
       public:
-        MoveWindow(ws::Window focused_window, geom::ScreenSpaceDirection dir, ws::Workspace* ws) : WindowCommand(std::move(focused_window), "Move Window"), direction(dir), workspace{ws} {}
+        MoveWindow(ws::Window focused_window, geom::ScreenSpaceDirection dir, ws::Workspace* ws)
+            : WindowCommand(std::move(focused_window), "Move Window"), direction(dir), workspace{ws}
+        {
+        }
         ~MoveWindow() override = default;
         void perform(xcb_connection_t* c) const override;
 
@@ -132,10 +130,4 @@ namespace cx::commands
       private:
         std::vector<ws::Window> windows;
     };
-
-    struct CommandBuilder {
-        CommandBuilder() = default;
-        std::stack<config::KeyConfiguration> key_presses;
-    };
-
 } // namespace cx::commands
