@@ -13,7 +13,7 @@
         - [ ] How does pixmaps work?
    - [ ] Logging of various X information (perhaps glance at basic_wm?)
    - [ ] Implement some form of [docking container](#docking-container) window, that will contain clickable widgets, for instance "go to workspace x"
-   - [ ] IPC [docking container](#ipc)
+   - [ ] [IPC](#ipc), handling (for instance) being sent commands by other applications or processes 
    
 ### User action features
    - [x] Rotate window left/right
