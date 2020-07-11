@@ -14,7 +14,8 @@
 namespace cx::ipc
 {
     namespace fs = std::filesystem;
-    constexpr auto READ_FIFO = 0; /// Tells the linux sys call msgrcv to just pick out the oldest message, and not pick out by type
+    /// Tells the linux sys call msgrcv to just pick out the oldest message, and not pick out by type
+    constexpr auto READ_FIFO = 0;
 
     template<typename... Args>
     struct IPCResultVisitor {
