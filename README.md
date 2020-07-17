@@ -13,7 +13,7 @@
         - [ ] How does pixmaps work?
    - [ ] Logging of various X information (perhaps glance at basic_wm?)
    - [ ] Implement some form of [docking container](#docking-container) window, that will contain clickable widgets, for instance "go to workspace x"
-   - [ ] [IPC](#ipc), handling (for instance) being sent commands by other applications or processes 
+   - [x] [IPC](#ipc), handling (for instance) being sent commands by other applications or processes 
    
 ### User action features
    - [x] Rotate window left/right
@@ -43,9 +43,13 @@ Similar to that of windows or linux. Containing things like what workspace one i
 Simple stuff to begin with.
 
 ### IPC
-IPC will be implemented using Linux's awesome payload queues. The reason why I won't use sockets or other things here,
-is because it seems unnecessarily complex for what I actually need to achieve. Using payload queues, we also get
-thread safety built in, another huge perk. 
+Implemented using Unix Domain Sockets. Currently, we link to a library cxprotocol that is supposed to keep all the info
+of how to send messages, create messages from payloads and decode them etc. Found in dep/local/cxprotocol.
+
+Using this, we can start creating Window Manager client applications, that take advantage of toolkits, and thus
+not have to "hardcode"/"handcode" in widget-y like things as we have done with the current workspace switcher. 
+
+For example, we can create something that looks nice, behaves nice and just send IPC commands over the unix domain socket. 
 
 ## Todo's implementation details
    - [x] Grab WM Hints and WM atoms etc. Can we get client names, so we can use them as identifiers?
@@ -70,3 +74,15 @@ There could be better solutions and designs here, but for now, this is what I go
 
 #### Screenshot of current basic functionalities
 ![Tiled windows and extremely rudimentary status bar](misc/basic_functionality_and_look.png)
+
+
+
+### Implementation details / Log
+Added epoll to the WM setup. EPoll is used for I/O multiplexing and is a linux feature (POSIX only has select/poll)
+By adding the XCB/X11 connection to the EPoll set (by calling xcb_get_filedescriptor(), we can multiplex on the
+IPC Unix Domain Socket and the X11 socket, thus we can poll for events on the IPC sockets & the X server sockets simulataneously
+thus increasing performance, since epoll_wait will actually block, and not be running an infinte loop absolutely chewing through CPU usage
+
+Trying to implement some Command pattern feature, so that the IPC mechanism will simulate what the Manager class does,
+and possibly get away from the enormouse if-then-else wall that one gets with handling input and making commands. Haven't really landed on anything good yet.
+
