@@ -18,7 +18,7 @@ namespace cx::workspace
     void Window::set_geometry(geom::Geometry g) noexcept { this->geometry = g; }
     void Window::draw_title(xcb_connection_t* c, const std::optional<std::string>& new_title) {
         m_tag.m_tag = new_title.value_or(m_tag.m_tag);
-        auto font_gc = x11::get_font_gc(c, frame_id, 0x000000, (u32)configuration.background_color, "7x13");
+        auto font_gc = x11::get_font_gc(c, frame_id, 0x000000, (u32)configuration.frame_background_color, "7x13");
         auto text_extents_cookie = xcb_query_text_extents(c, font_gc.value(), m_tag.m_tag.length(),
                                                           reinterpret_cast<const xcb_char2b_t*>(m_tag.m_tag.c_str()));
         cx::x11::X11Resource text_extents = xcb_query_text_extents_reply(c, text_extents_cookie, nullptr);

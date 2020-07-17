@@ -53,7 +53,7 @@ namespace cx::workspace
         auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
         template <typename Fn>
         auto find_window_then(xcb_window_t xwin, Fn then) -> void {
-            find_window_and_then(m_root, xwin, then);
+            find_window_and_then(m_root, xwin, std::move(then));
         }
         /// Traverses the ContainerTree for this workspace in order, and calls xcb_configure for each window with
         /// the properties stored in each ws::Window, updating the display so that any and all changes made, will show up on screen
