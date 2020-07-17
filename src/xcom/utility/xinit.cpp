@@ -95,6 +95,21 @@ namespace cx::x11
 
     auto get_client_wm_name(XCBConn* c, xcb_window_t window) -> std::optional<std::string>
     {
+        auto test_cookie = xcb_get_property(c, 0, window, XCB_ATOM_FULL_NAME, XCB_ATOM_STRING, 0, 100);
+        auto test_rep = xcb_get_property_reply(c, test_cookie, nullptr);
+        auto test_length = xcb_get_property_value_length(test_rep);
+        if(test_length <= 0) {
+            cx::println("COULD NOT GET FULL NAME");
+            free(test_rep);
+        } else {
+            auto start = (const char*)xcb_get_property_value(test_rep);
+            std::string_view s{start, (std::size_t)test_length};
+            DBGLOG("WM_NAME Length: {} Data: [{}]", test_length, s);
+            auto result = std::string{s};
+            free(test_rep);
+            return result;
+        }
+
         auto prop_cookie = xcb_get_property(c, 0, window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 0, 45);
         if(auto prop_reply = xcb_get_property_reply(c, prop_cookie, nullptr); prop_reply) {
             auto str_length = xcb_get_property_value_length(prop_reply);
@@ -116,8 +131,7 @@ namespace cx::x11
             return {};
         }
     }
-    auto get_font_gc(XCBConn* c, XCBScreen* screen, XCBWindow window, cx::u32 fg_color, cx::u32 bg_color, std::string_view font_name)
-        -> std::optional<xcb_gcontext_t>
+    auto get_font_gc(XCBConn* c, XCBWindow window, cx::u32 fg_color, cx::u32 bg_color, std::string_view font_name) -> std::optional<xcb_gcontext_t>
     {
         auto font = xcb_generate_id(c);
         auto font_cookie = xcb_open_font_checked(c, font, font_name.length(), font_name.data());

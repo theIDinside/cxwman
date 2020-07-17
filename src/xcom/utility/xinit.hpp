@@ -18,6 +18,10 @@
 
 #define CXGRABMODE XCB_GRAB_MODE_ASYNC
 
+namespace cx {
+    using u32 = std::uint32_t;
+}
+
 namespace cx::x11
 {
 
@@ -68,8 +72,8 @@ namespace cx::x11
     using XCBWindow = xcb_window_t;
 
     struct XInternals {
-        XInternals(XCBConn* c, XCBScreen* scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh, xcb_key_symbols_t* symbols)
-            : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh), keysyms(symbols)
+        XInternals(XCBConn* c, XCBScreen* scr, XCBDrawable rd, XCBWindow w, XCBWindow ewmh, xcb_key_symbols_t* symbols, int fd)
+            : c(c), screen(scr), root_drawable(rd), root_window(w), ewmh_window(ewmh), keysyms(symbols), xcb_file_descriptor(fd)
         {
         }
         ~XInternals() { free(keysyms); }
@@ -79,6 +83,7 @@ namespace cx::x11
         XCBWindow root_window;
         XCBWindow ewmh_window;
         xcb_key_symbols_t* keysyms;
+        int xcb_file_descriptor;
     };
 
     // Yanked from the define in i3, to be used for our root window as well
@@ -121,5 +126,5 @@ namespace cx::x11
 
     auto get_client_wm_name(XCBConn* c, xcb_window_t window) -> std::optional<std::string>;
     // NOTE: On linux type xlsfonts to list X font names, that can be used as font_name
-    auto get_font_gc(XCBConn* c, XCBScreen* screen, XCBWindow window, uint fg_color, uint  bg_color, std::string_view font_name) -> std::optional<xcb_gcontext_t>;
+    auto get_font_gc(XCBConn* c, XCBWindow window, u32 fg_color, u32 bg_color, std::string_view font_name) -> std::optional<xcb_gcontext_t>;
 } // namespace cx::x11
