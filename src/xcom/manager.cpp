@@ -471,8 +471,7 @@ namespace cx
             if(e->atom == XCB_ATOM_WM_NAME) {
                 cx::println("WM Name changed");
                 auto c = get_conn();
-                focused_ws->find_window_then(e->window,
-                                             [c](auto& window) { window.draw_title(c, x11::get_client_wm_name(c, window.client_id)); });
+                focused_ws->find_window_then(e->window, [c](auto& window) { window.draw_title(c, x11::get_client_wm_name(c, window.client_id)); });
             }
             break;
         }
@@ -552,13 +551,9 @@ namespace cx
     {
         if(ws_id < m_workspaces.size()) {
             auto c = get_conn();
-            focused_ws->unmap_workspace([&c](xcb_window_t window) {
-                xcb_unmap_window(c, window);
-            });
+            focused_ws->unmap_workspace([&c](xcb_window_t window) { xcb_unmap_window(c, window); });
             focused_ws = m_workspaces[ws_id].get();
-            focused_ws->map_workspace([&c](xcb_window_t window) {
-                xcb_map_window(c, window);
-            });
+            focused_ws->map_workspace([&c](xcb_window_t window) { xcb_map_window(c, window); });
             xcb_flush(get_conn());
         } else {
             cx::println("There is no workspace with id {}", ws_id);

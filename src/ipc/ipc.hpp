@@ -99,6 +99,7 @@ namespace cx::ipc
         virtual void handle_incoming_connection() = 0;
         virtual void read_from_input(std::optional<int> file_descriptor) = 0;
         virtual void drop_client(int fd) {}
+
       protected:
         IPCFileDescriptors server_fds;
     };

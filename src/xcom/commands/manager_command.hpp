@@ -22,7 +22,8 @@ namespace cx::workspace
     class Workspace;
 } // namespace cx::workspace
 
-namespace cx {
+namespace cx
+{
     class Manager;
 }
 
@@ -38,6 +39,7 @@ namespace cx::commands
         [[nodiscard]] std::string_view command_name() const { return cmd_name; }
         virtual void perform(xcb_connection_t* c) const = 0;
         virtual void request_state(Manager* m) = 0;
+
       protected:
         std::string_view cmd_name;
     };
@@ -56,8 +58,7 @@ namespace cx::commands
     {
       public:
         FocusWindow(ws::Window activated_window) noexcept
-            : WindowCommand(std::move(activated_window), "Focus Window"), defocused_window{}, acol(0),
-              icol(0)
+            : WindowCommand(std::move(activated_window), "Focus Window"), defocused_window{}, acol(0), icol(0)
         {
         }
         ~FocusWindow() noexcept override = default;
@@ -66,6 +67,7 @@ namespace cx::commands
         void perform(xcb_connection_t* c) const override;
         void request_state(Manager* m) override;
         void set_defocused(ws::Window w);
+
       private:
         /// Activated/focused color and inactivated color
         std::optional<ws::Window> defocused_window;
@@ -93,6 +95,7 @@ namespace cx::commands
         ~ConfigureWindows() override = default;
         void perform(xcb_connection_t* c) const override;
         void request_state(Manager* m) override;
+
       private:
         std::optional<ws::Window> existing_window;
     };
@@ -103,6 +106,7 @@ namespace cx::commands
         explicit KillClient(ws::Window w) noexcept : WindowCommand{std::move(w), "Kill client"} {}
         ~KillClient() override = default;
         void perform(xcb_connection_t* c) const override;
+
       private:
     };
 
@@ -112,6 +116,7 @@ namespace cx::commands
         explicit KillClientsByTag(std::string tag) noexcept : ManagerCommand{"Kill clients by tag"} {}
         ~KillClientsByTag() override = default;
         void perform(xcb_connection_t* c) const override;
+
       private:
     };
 

@@ -9,8 +9,8 @@
 #include <numeric>
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
-#include <xcom/workspace.hpp>
 #include <xcom/manager.hpp>
+#include <xcom/workspace.hpp>
 
 namespace cx::commands
 {
@@ -28,14 +28,13 @@ namespace cx::commands
 
         xcb_flush(c);
     }
-    void FocusWindow::request_state(Manager* m) {
+    void FocusWindow::request_state(Manager* m)
+    {
         auto border_col_cfg = m->get_config().borders;
         icol = border_col_cfg.inactive;
         acol = border_col_cfg.active;
     }
-    void FocusWindow::set_defocused(ws::Window w) {
-        defocused_window = w;
-    }
+    void FocusWindow::set_defocused(ws::Window w) { defocused_window = w; }
     void ChangeWorkspace::perform(xcb_connection_t* c) const {}
     void ConfigureWindows::perform(xcb_connection_t* c) const
     {
@@ -164,12 +163,12 @@ namespace cx::commands
 
         while(!str.empty()) {
             auto part = str.find_first_of(' ');
-            if(!cmd) cmd = std::make_optional(str.substr(0, part));
-            else params.emplace_back(str.substr(0, part));
+            if(!cmd)
+                cmd = std::make_optional(str.substr(0, part));
+            else
+                params.emplace_back(str.substr(0, part));
             str.remove_prefix(part);
         }
-
-
 
         return std::optional<std::unique_ptr<ManagerCommand>>();
     }

@@ -1,9 +1,9 @@
-#include <xcom/events.hpp>
 #include <datastructure/geometry.hpp>
 #include <stack>
 #include <utility>
 #include <xcom/commands/manager_command.hpp>
 #include <xcom/core.hpp>
+#include <xcom/events.hpp>
 #include <xcom/workspace.hpp>
 
 namespace cx::workspace
