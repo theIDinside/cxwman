@@ -12,7 +12,7 @@
 #include <vector>
 #include <xcb/xcb.h>
 #include <xcom/events.hpp>
-#include <xcom/utility/config.hpp>
+#include <xcom/utility/key_config.hpp>
 #include <xcom/window.hpp>
 /// Forward declarations... oh how absolutely bat shit horrendous C++ is in this regard
 
@@ -21,6 +21,10 @@ namespace cx::workspace
     class ContainerTree;
     class Workspace;
 } // namespace cx::workspace
+
+namespace cx {
+    class Manager;
+}
 
 namespace cx::commands
 {
@@ -33,7 +37,7 @@ namespace cx::commands
         virtual ~ManagerCommand() = default;
         [[nodiscard]] std::string_view command_name() const { return cmd_name; }
         virtual void perform(xcb_connection_t* c) const = 0;
-
+        virtual void request_state(Manager* m) = 0;
       protected:
         std::string_view cmd_name;
     };
@@ -51,19 +55,20 @@ namespace cx::commands
     class FocusWindow : public WindowCommand
     {
       public:
-        FocusWindow(ws::Window activated_window, ws::Window deactivated_window, int active_color, int inactive_color) noexcept
-            : WindowCommand(std::move(activated_window), "Focus Window"), defocused_window{std::move(deactivated_window)}, acol(active_color),
-              icol(inactive_color)
+        FocusWindow(ws::Window activated_window) noexcept
+            : WindowCommand(std::move(activated_window), "Focus Window"), defocused_window{}, acol(0),
+              icol(0)
         {
         }
         ~FocusWindow() noexcept override = default;
         /// x_windows is populated by whatever can accept a command, so the command is defined, but what it should operate on is passed in as
         /// parameter
         void perform(xcb_connection_t* c) const override;
-
+        void request_state(Manager* m) override;
+        void set_defocused(ws::Window w);
       private:
         /// Activated/focused color and inactivated color
-        ws::Window defocused_window;
+        std::optional<ws::Window> defocused_window;
         int acol, icol;
     };
 
@@ -87,6 +92,7 @@ namespace cx::commands
         }
         ~ConfigureWindows() override = default;
         void perform(xcb_connection_t* c) const override;
+        void request_state(Manager* m) override;
       private:
         std::optional<ws::Window> existing_window;
     };
@@ -97,7 +103,15 @@ namespace cx::commands
         explicit KillClient(ws::Window w) noexcept : WindowCommand{std::move(w), "Kill client"} {}
         ~KillClient() override = default;
         void perform(xcb_connection_t* c) const override;
+      private:
+    };
 
+    class KillClientsByTag : public ManagerCommand
+    {
+      public:
+        explicit KillClientsByTag(std::string tag) noexcept : ManagerCommand{"Kill clients by tag"} {}
+        ~KillClientsByTag() override = default;
+        void perform(xcb_connection_t* c) const override;
       private:
     };
 
@@ -110,6 +124,7 @@ namespace cx::commands
         }
         ~MoveWindow() override = default;
         void perform(xcb_connection_t* c) const override;
+        void request_state(Manager* m) override;
 
       private:
         geom::ScreenSpaceDirection direction;
@@ -126,6 +141,7 @@ namespace cx::commands
         explicit UpdateWindows(const std::vector<ws::ContainerTree*>& nodes) noexcept;
         ~UpdateWindows() override = default;
         void perform(xcb_connection_t* c) const override;
+        void request_state(Manager* m) override;
 
       private:
         std::vector<ws::Window> windows;

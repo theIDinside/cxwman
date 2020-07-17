@@ -9,6 +9,7 @@
 #include <queue>
 #include <sys/ipc.h>
 #include <sys/msg.h>
+#include <utility>
 #include <variant>
 
 namespace cx::ipc
@@ -18,24 +19,37 @@ namespace cx::ipc
     constexpr auto READ_FIFO = 0;
 
     template<typename... Args>
-    struct IPCResultVisitor {
+    struct IPCResultVisitor : public Args... {
         using Args::operator()...;
     };
 
     template<typename... Args>
     IPCResultVisitor(Args&&...) -> IPCResultVisitor<Args...>;
-
     enum class CommandTypes : long { Window = 1, Workspace = 2, BindKey = 3, N = BindKey };
     /// Internal representation. This is is the struct we let Linux write into from the message queue
+
+    struct IPCFileDescriptors {
+        IPCFileDescriptors(int epollFD, int listeningFD) : epoll(epollFD), listening(listeningFD) {}
+        int epoll;
+        int listening;
+    };
+
     struct IPCBuffer {
-        long type;                    /// 8 bytes
-        std::array<char, 120> buffer; /// 120 + 8 bytes lines up on a 8 byte boundary.
+        /// 8 bytes
+        long type;
+        /// 2040 + 8 bytes lines up on a 8 byte boundary.
+        char buffer[2040];
     };
 
     struct IPCMessage {
+        /// Commands that we understand
         CommandTypes type;
-        std::string_view payload;
-        IPCMessage(CommandTypes type, std::string_view view) noexcept;
+        /// Client name - used as path for message queues to where we write responses to, or simply as an client identifier when it comes to sockets
+        /// (if we want to, it's not necessary there as we have the file descriptor)
+        std::string client_name;
+        /// payload containing command arguments
+        std::string payload;
+        IPCMessage(CommandTypes type, std::string_view client_identifier, std::string_view payload) noexcept;
     };
 
     struct IPCError {
@@ -45,42 +59,47 @@ namespace cx::ipc
 
     struct IPCReadResult {
         std::variant<IPCMessage, IPCError, std::nullopt_t> result;
-
-        explicit IPCReadResult() noexcept : result{std::nullopt} {}
+        explicit IPCReadResult(std::nullopt_t noop) noexcept : result(noop) {}
         explicit IPCReadResult(IPCMessage msg) noexcept : result{msg} {}
         explicit IPCReadResult(IPCError err) noexcept : result(err) {}
         template<typename Fn>
-        [[maybe_unused]] auto then(Fn fn)
+        [[maybe_unused]] void then(Fn fn)
         {
-            std::visit(
-                IPCResultVisitor{[fn](IPCMessage&& m) { fn(m); }, [](IPCError err) { cx::println("Failed to read message queue"); }},
-                [](std::nullopt_t) {}, result);
-        }
-
-        template<typename OrDoFn>
-        auto as_message_or(OrDoFn fn) -> std::optional<IPCMessage>
-        {
-            return std::visit(IPCResultVisitor{[](IPCMessage&& msg) { return std::make_optional<IPCMessage>(msg); },
-                                               [fn](auto&& other) {
-                                                   fn();
-                                                   return std::optional<IPCMessage>{std::nullopt};
-                                               }},
-                              result);
+            std::visit(IPCResultVisitor{[fn](IPCMessage m) { fn(m); },
+                                        [](IPCError err) { cx::println("Failed to read message queue. System message: {}", err.err_message); },
+                                        [](std::nullopt_t) {}},
+                       result);
         }
     };
 
-    class IPC
+    enum IPCType {
+        SYS_V_MQ = 1,
+        POSIX_MQ = 2,
+        POSIX_SOCKET = 3,
+    };
+
+    class IPCInterface;
+    namespace factory
     {
-      private:
-        fs::path path;
-        key_t handle;
-        int queue_identifier;
+        [[nodiscard]] auto ipc_setup_unix_socket(const fs::path& p, int epoll_fd) -> std::unique_ptr<IPCInterface>;
 
+    } // namespace factory
+
+    class IPCInterface
+    {
       public:
-        IPC(fs::path fpath, key_t handle, int queue_ident);
-
-        [[nodiscard]] auto poll_queue() const -> IPCReadResult;
-        [[nodiscard]] static auto setup_ipc(const fs::path& p) -> std::unique_ptr<IPC>;
+        fs::path path;
+        explicit IPCInterface(fs::path qpath, IPCFileDescriptors fds) : path(std::move(qpath)), server_fds(fds) {}
+        virtual ~IPCInterface() = default;
+        [[nodiscard]] virtual auto poll_queue() -> IPCReadResult = 0;
+        virtual auto poll_event() -> void = 0;
+        /// If we are using (possibly) IPC that is non-compliant with poll/epoll or select, we don't override this function
+        [[nodiscard]] virtual auto has_request() const -> bool { return false; }
+        [[nodiscard]] virtual auto is_connection_request(int fd) -> bool { return fd == server_fds.listening; }
+        virtual void handle_incoming_connection() = 0;
+        virtual void read_from_input(std::optional<int> file_descriptor) = 0;
+        virtual void drop_client(int fd) {}
+      protected:
+        IPCFileDescriptors server_fds;
     };
-
 } // namespace cx::ipc

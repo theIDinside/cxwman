@@ -1,6 +1,5 @@
 #include <xcom/events.hpp>
-#include <datastructure//geometry.hpp>
-#include <cassert>
+#include <datastructure/geometry.hpp>
 #include <stack>
 #include <utility>
 #include <xcom/commands/manager_command.hpp>
@@ -248,7 +247,9 @@ namespace cx::workspace
                    client.geometry.y(), client.geometry.width, client.geometry.height);
             auto de_focused_window = foc_con->client.value();
             foc_con = *c;
-            return commands::FocusWindow{client, de_focused_window, 0x00ff00, 0xff0000};
+            auto cmd = commands::FocusWindow{client};
+            cmd.set_defocused(de_focused_window);
+            return cmd;
         } else {
             return {};
         }
@@ -290,14 +291,6 @@ namespace cx::workspace
         } else {
             m_root->geometry = m_space;
             m_root->parent = m_root.get();
-        }
-    }
-    void Workspace::focus_pointer_to_sibling()
-    {
-        if(foc_con->parent->left.get() == foc_con) {
-            foc_con = foc_con->parent->right.get();
-        } else {
-            foc_con = foc_con->parent->left.get();
         }
     }
 }; // namespace cx::workspace

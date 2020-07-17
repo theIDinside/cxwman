@@ -78,6 +78,10 @@ namespace cx::workspace
         // run MapFn on each item in the tree, that is of window "type"
         template<typename MapFn>
         friend auto in_order_window_map(std::unique_ptr<ContainerTree>& tree_node, MapFn fn) -> void;
+
+        template<typename ThenFn>
+        friend auto find_window_and_then(std::unique_ptr<ContainerTree>& tree_node, xcb_window_t win, ThenFn fn) -> void;
+
         friend void move_client(ContainerTree* from, ContainerTree* to);
         // Promote's child to parent. This function also calls update_subtree_geometry on promoted child so all it's children get proper
         // geometries
@@ -92,7 +96,6 @@ namespace cx::workspace
     using TreeOwned = std::unique_ptr<ContainerTree>;
     void move_client(ContainerTree* from, ContainerTree* to);
     [[maybe_unused]] auto promote_child(std::unique_ptr<ContainerTree> child) -> ContainerTree*;
-    std::unique_ptr<ContainerTree> make_tree(std::string ws_tag);
 
     template<typename MapFn>
     auto in_order_window_map(std::unique_ptr<ContainerTree>& tree_node, MapFn fn) -> void
@@ -103,6 +106,16 @@ namespace cx::workspace
         if(tree_node->is_window())
             fn(*(tree_node->client));
         in_order_window_map(tree_node->right, fn);
+    }
+
+    template<typename ThenFn>
+    auto find_window_and_then(std::unique_ptr<ContainerTree>& tree_node, xcb_window_t win, ThenFn fn) -> void {
+        if(!tree_node) return;
+        find_window_and_then(tree_node->left, win, fn);
+        if(tree_node->is_window() && (tree_node->client.value().client_id == win || tree_node->client.value().frame_id == win)) {
+            fn(tree_node->client.value());
+        }
+        find_window_and_then(tree_node->right, win, fn);
     }
 
     template<typename Predicate>

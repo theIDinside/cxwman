@@ -1,7 +1,7 @@
 //
 // Created by cx on 2020-06-19.
 //
-#include <xcom/utility/config.hpp>
+#include <xcom/utility/key_config.hpp>
 
 namespace cx::config
 {

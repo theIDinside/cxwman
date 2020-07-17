@@ -5,15 +5,18 @@
 #include "manager_command.hpp"
 #include <cassert>
 #include <datastructure/container.hpp>
+#include <memory_resource>
+#include <numeric>
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
 #include <xcom/workspace.hpp>
+#include <xcom/manager.hpp>
 
 namespace cx::commands
 {
     void cx::commands::FocusWindow::perform(xcb_connection_t* c) const
     {
-        auto deactivated_cookie = xcb_change_window_attributes_checked(c, this->defocused_window.frame_id, XCB_CW_BORDER_PIXEL, (int[]){icol});
+        auto deactivated_cookie = xcb_change_window_attributes_checked(c, defocused_window.value().frame_id, XCB_CW_BORDER_PIXEL, (int[]){icol});
         // error handling / reporting
         if(auto err = xcb_request_check(c, deactivated_cookie); err) {
             cx::println("Failed to change color of de-focused window");
@@ -24,6 +27,14 @@ namespace cx::commands
         }
 
         xcb_flush(c);
+    }
+    void FocusWindow::request_state(Manager* m) {
+        auto border_col_cfg = m->get_config().borders;
+        icol = border_col_cfg.inactive;
+        acol = border_col_cfg.active;
+    }
+    void FocusWindow::set_defocused(ws::Window w) {
+        defocused_window = w;
     }
     void ChangeWorkspace::perform(xcb_connection_t* c) const {}
     void ConfigureWindows::perform(xcb_connection_t* c) const
@@ -55,6 +66,7 @@ namespace cx::commands
         }
         xcb_flush(c);
     }
+    void ConfigureWindows::request_state(Manager* m) {}
     void KillClient::perform(xcb_connection_t* c) const {}
     void UpdateWindows::perform(xcb_connection_t* c) const
     {
@@ -89,6 +101,7 @@ namespace cx::commands
 #endif
         std::transform(std::begin(nodes), std::end(nodes), std::back_inserter(windows), [](auto t) { return t->client.value(); });
     }
+    void UpdateWindows::request_state(Manager* m) {}
     void MoveWindow::perform(xcb_connection_t* c) const
     {
         using Dir = geom::ScreenSpaceDirection;
@@ -142,5 +155,22 @@ namespace cx::commands
                 DBGLOG("Target position is inside source geometry. No move {}", "");
             }
         }
+    }
+    void MoveWindow::request_state(Manager* m) {}
+    auto parse_string(std::string_view str) -> std::optional<std::unique_ptr<ManagerCommand>>
+    {
+        std::optional<std::string> cmd;
+        std::vector<std::string> params;
+
+        while(!str.empty()) {
+            auto part = str.find_first_of(' ');
+            if(!cmd) cmd = std::make_optional(str.substr(0, part));
+            else params.emplace_back(str.substr(0, part));
+            str.remove_prefix(part);
+        }
+
+
+
+        return std::optional<std::unique_ptr<ManagerCommand>>();
     }
 } // namespace cx::commands

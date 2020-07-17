@@ -12,16 +12,18 @@
 // Library/Application headers
 #include <datastructure/geometry.hpp>
 
+#include "configuration.hpp"
 #include "events.hpp"
+#include <ipc/ipc.hpp>
 #include <stack>
+#include <sys/epoll.h>
 #include <xcom/commands/manager_command.hpp>
 #include <xcom/constants.hpp>
 #include <xcom/core.hpp>
 #include <xcom/status_bar.hpp>
-#include <xcom/utility/config.hpp>
+#include <xcom/utility/key_config.hpp>
+#include <xcom/utility/xinit.hpp>
 #include <xcom/workspace.hpp>
-#include <xcom/xinit.hpp>
-#include <ipc/ipc.hpp>
 namespace cx
 {
 
@@ -37,14 +39,10 @@ namespace cx
     /// This also free's the memory pointed to by reply
     auto process_x_geometry(xcb_connection_t* c, xcb_window_t window) -> std::optional<geom::Geometry>;
 
-    void unmap(const ws::Window& w, xcb_connection_t* c);
-    constexpr auto MouseModMask = XCB_MOD_MASK_1;
-
     // TODO: Use/Not use a map of std::functions as keybindings?
     template<typename Receiver>
     struct KeyEventHandler {
         using FunctionCall = std::pair<typename Receiver::MFPWA, cx::events::EventArg>;
-        explicit KeyEventHandler(Receiver* r) : r(r) {}
 
         void handle(const config::KeyConfiguration& kc)
         {
@@ -78,11 +76,16 @@ namespace cx
         static auto initialize() -> std::unique_ptr<Manager>;
         static auto noop() -> void;
         auto event_loop() -> void;
+        /// called when we get an IO event on the xcb fd, in event loop
+        auto handle_generic_event(xcb_generic_event_t* e) -> void;
+        auto handle_file_descriptor_event(int fd) -> void;
+        [[nodiscard]] ws::Window focused_window() const;
+        [[nodiscard]] const cfg::Configuration& get_config() const;
+        Manager(x11::XCBConn* connection, x11::XCBScreen* screen, x11::XCBDrawable root_drawable, x11::XCBWindow root_window,
+                x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols, int xcb_fd, std::unique_ptr<ipc::IPCInterface> messenger,
+                int epoll_fd) noexcept;
 
       private:
-        Manager(x11::XCBConn* connection, x11::XCBScreen* screen, x11::XCBDrawable root_drawable, x11::XCBWindow root_window,
-                x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept;
-
         [[nodiscard]] inline constexpr auto get_conn() const -> x11::XCBConn*;
         [[nodiscard]] inline constexpr auto get_root() const -> x11::XCBWindow;
         [[nodiscard]] inline constexpr auto get_screen() const -> x11::XCBScreen*;
@@ -110,7 +113,7 @@ namespace cx
         auto handle_key_press(xcb_key_press_event_t* event) -> void;
 
         // We assume that most windows were not mapped/created before our WM started
-        auto frame_window(x11::XCBWindow window, geom::Geometry geometry = geom::Geometry{0, 0, 800, 600}, bool create_before_wm = false) -> void;
+        auto frame_window(x11::XCBWindow window, bool create_before_wm = false) -> void;
         auto unframe_window(const ws::Window& w, bool destroy_client = true) -> void;
         // Makes configure request to X so that it updates window, based on our representation of what it should be
         auto configure_window_geometry(const ws::Window& w) -> void;
@@ -145,6 +148,12 @@ namespace cx
         KeyEventHandler<Manager> event_dispatcher;
         WindowProperties inactive_windows;
         WindowProperties active_windows;
+        std::unique_ptr<ipc::IPCInterface> ipc_interface;
+        int epoll_fd;
+
+        cfg::Configuration configuration;
+
+        void handle_expose_event(xcb_expose_event_t* pEvent);
     };
 
 } // namespace cx

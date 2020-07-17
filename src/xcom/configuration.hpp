@@ -2,11 +2,22 @@
 // Created by cx on 2020-07-16.
 //
 
-#ifndef CXWMAN_CONFIGURATION_HPP
-#define CXWMAN_CONFIGURATION_HPP
+#pragma once
 
-class Configuration
-{
-};
+#include <map>
 
-#endif // CXWMAN_CONFIGURATION_HPP
+namespace cx::cfg {
+
+    struct StateColor {
+        int active, inactive;
+    };
+
+    struct Configuration
+    {
+      public:
+        Configuration();
+        StateColor borders;
+        int background_color;
+        int frame_title_height;
+    };
+}

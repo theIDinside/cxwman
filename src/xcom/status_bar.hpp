@@ -4,7 +4,8 @@
 
 #pragma once
 
-#include "xinit.hpp"
+#include "configuration.hpp"
+#include "xcom/utility/xinit.hpp"
 #include <datastructure/geometry.hpp>
 #include <map>
 #include <xcb/xproto.h>
@@ -85,6 +86,7 @@ namespace cx::workspace
     using WBox = std::unique_ptr<WorkspaceBox>;
 
     /// Talks to X-server and creates the required x server resources, returns a well-formed StatusBar object
-    SysBar make_system_bar(xcb_connection_t* c, xcb_screen_t* screen, std::size_t workspace_count, geom::Geometry sys_bar_geometry);
+    SysBar make_system_bar(xcb_connection_t* c, xcb_screen_t* screen, std::size_t workspace_count, geom::Geometry sys_bar_geometry,
+                           const cx::cfg::Configuration& wmcfg);
 
 } // namespace cx::workspace

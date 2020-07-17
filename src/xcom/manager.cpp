@@ -3,14 +3,18 @@
 #include <xcom/manager.hpp>
 
 // System headers xcb
-#include <xcb/xcb_atom.h>
 #include <xcb/xcb_ewmh.h>
 #include <xcb/xcb_keysyms.h>
-#include <xcb/xcb_util.h>
 // STD System headers
 #include <algorithm>
 #include <cassert>
+#include <fcntl.h>
 #include <memory>
+#include <sys/epoll.h>
+#include <sys/socket.h>
+#include <xcom/utility/drawing/util.h>
+
+using namespace std::literals;
 
 namespace cx
 {
@@ -46,7 +50,7 @@ namespace cx
         add_workspace("Workspace 9", 0);
         add_workspace("Workspace 10", 0);
         add_workspace("Workspace 11", 0);
-        this->status_bar = ws::make_system_bar(get_conn(), get_screen(), m_workspaces.size(), geom::Geometry{0, 0, 800, 25});
+        this->status_bar = ws::make_system_bar(get_conn(), get_screen(), m_workspaces.size(), geom::Geometry{0, 0, 800, 25}, configuration);
         this->focused_ws = m_workspaces[0].get();
     }
 
@@ -79,7 +83,7 @@ namespace cx
         // Set this in pre-processor variable in CMake, to run this code
         DBGLOG("Screen size {} x {} pixels. Root window: {}", screen->width_in_pixels, screen->height_in_pixels, root_drawable);
         // TODO: remove this call to setup_mouse... completely for root?
-        x11::setup_mouse_button_request_handling(c, window);
+        // x11::setup_mouse_button_request_handling(c, window);
         x11::setup_redirection_of_map_requests(c, window);
         x11::setup_key_press_listening(c, window);
         // TODO: grab keys & set up keysymbols and configs
@@ -91,16 +95,15 @@ namespace cx
         auto support_check_cookie = xcb_intern_atom(c, 0, name_len("_NET_SUPPORTING_WM_CHECK"), "_NET_SUPPORTING_WM_CHECK");
         auto wm_name_cookie = xcb_intern_atom(c, 0, name_len("_NET_WM_NAME"), "_NET_WM_NAME");
 
-        auto support_r = xcb_intern_atom_reply(c, support_check_cookie, nullptr);
-        auto wm_name_r = xcb_intern_atom_reply(c, wm_name_cookie, nullptr);
+        cx::x11::X11Resource support_r = xcb_intern_atom_reply(c, support_check_cookie, nullptr);
+        cx::x11::X11Resource wm_name_r = xcb_intern_atom_reply(c, wm_name_cookie, nullptr);
 
         auto get_atom = [c](auto atom_name) -> xcb_atom_t {
             auto cookie = xcb_intern_atom(c, 0, strlen(atom_name), atom_name);
             /* ... do other work here if possible ... */
-            if(auto reply = xcb_intern_atom_reply(c, cookie, nullptr); reply) {
+            if(cx::x11::X11Resource reply = xcb_intern_atom_reply(c, cookie, nullptr); reply) {
                 DBGLOG("The {} atom has ID {}", atom_name, reply->atom);
                 auto atom = reply->atom;
-                free(reply);
                 return atom;
             } else {
                 DBGLOG("Failed to get atom for: {}. In debug mode we crash here.", atom_name);
@@ -119,37 +122,55 @@ namespace cx
 
         // TODO(implement): Set the supported atoms by calling change prop with _NET_SUPPORTED as the... property, XCB_ATOM_ATOM as the
         // type, and then the atoms as the data
-        auto err_found = false;
         for(const auto& cookie : cookies) {
             if(auto err = xcb_request_check(c, cookie); err) {
                 cx::println("Failed to change property of EWMH Window or Root window");
-                err_found = true;
             }
         }
-#ifdef DEBUGGING
-        if(!err_found)
-            DBGLOG("Succesfully changed properties SUPPORTING_WM_CHECK and WM_NAME of ewmh window {} and root window {}", ewmh_window, window);
-#endif
         cookies.clear();
         cookies.push_back(xcb_map_window_checked(c, ewmh_window));
         cookies.push_back(xcb_configure_window_checked(c, ewmh_window, XCB_CONFIG_WINDOW_STACK_MODE, (uint32_t[]){XCB_STACK_MODE_BELOW}));
-        err_found = false;
         for(const auto& cookie : cookies) {
             if(auto err = xcb_request_check(c, cookie); err) {
                 cx::println("Failed to map/configure ewmh window");
-                err_found = true;
             }
         }
         auto symbols = xcb_key_symbols_alloc(c);
-        return std::unique_ptr<Manager>(new Manager{c, screen, root_drawable, window, ewmh_window, symbols});
+        auto xcb_fd = xcb_get_file_descriptor(c);
+
+        epoll_event event{};
+        event.events = EPOLLET | EPOLLIN | EPOLLOUT;
+
+        constexpr auto make_socket_non_blocking = [](auto fileDescriptor) {
+            auto sock_flags = fcntl(fileDescriptor, F_GETFL);
+            if(sock_flags == -1) {
+                cx::println("Failed to get flags for socket {}", fileDescriptor);
+                return false;
+            }
+            if(fcntl(fileDescriptor, F_SETFL, sock_flags | O_NONBLOCK) == -1) {
+                cx::println("Failed to set socket to non-blocking");
+                return false;
+            }
+            return true;
+        };
+        make_socket_non_blocking(xcb_fd);
+
+        event.data.fd = xcb_fd;
+        auto xcb_epfd = epoll_create1(0);
+        epoll_ctl(xcb_epfd, EPOLL_CTL_ADD, xcb_fd, &event);
+
+        return std::make_unique<Manager>(c, screen, root_drawable, window, ewmh_window, symbols, xcb_fd,
+                                         ipc::factory::ipc_setup_unix_socket("cxwman_ipc", xcb_epfd), xcb_epfd);
     }
 
     // Private constructor called via public interface function Manager::initialize()
     Manager::Manager(x11::XCBConn* connection, x11::XCBScreen* screen, x11::XCBDrawable root_drawable, x11::XCBWindow root_window,
-                     x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols) noexcept
-        : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols},
-          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{},
-          focused_ws(nullptr), m_workspaces{}, event_dispatcher{this}, status_bar{nullptr}, inactive_windows{1, 0xff0000}, active_windows{1, 0x00ff00}
+                     x11::XCBWindow ewmh_window, xcb_key_symbols_t* symbols, int xcb_fd, std::unique_ptr<ipc::IPCInterface> messenger,
+                     int epoll_fd) noexcept
+        : x_detail{connection, screen, root_drawable, root_window, ewmh_window, symbols, xcb_fd},
+          m_running(false), client_to_frame_mapping{}, frame_to_client_mapping{}, focused_ws(nullptr), m_workspaces{}, event_dispatcher{this},
+          status_bar{nullptr}, inactive_windows{1, 0xff0000}, active_windows{1, 0x00ff00}, ipc_interface{std::move(messenger)}, epoll_fd(epoll_fd),
+          configuration()
     {
     }
 
@@ -162,14 +183,14 @@ namespace cx
     // TODO(EWMHints): Grab EWM hints & set up supported hints
     auto Manager::handle_map_request(xcb_map_request_event_t* evt) -> void
     {
-        frame_window(evt->window);
+        frame_window(evt->window, false);
         xcb_map_window(get_conn(), evt->window);
     }
 
     // FIXME: When killing clients down to only 1 client, mapping new clients fails.
     auto Manager::handle_unmap_request(xcb_unmap_window_request_t* event) -> void
     {
-        // DBGLOG("Handle unmap request for {}", event->window);
+        DBGLOG("Handle unmap request for {}", event->window);
         auto window_container = focused_ws->find_window(event->window);
         if(window_container) {
             auto window = *window_container.value()->client;
@@ -260,20 +281,20 @@ namespace cx
         event_dispatcher.handle(cfg);
     }
 
-    auto Manager::frame_window(x11::XCBWindow window, geom::Geometry geometry, bool created_before_wm) -> void
+    auto Manager::frame_window(x11::XCBWindow window, bool create_before_wm) -> void
     {
         namespace xkm = xcb_key_masks;
         std::array<xcb_void_cookie_t, 6> cookies{};
-
+        const auto& c = get_conn();
         if(client_to_frame_mapping.count(window)) {
             DBGLOG("Framing an already framed window (id: {}) is unhandled behavior. Returning early from framing function.", window);
             return;
         }
 
-        auto win_attr = xcb_get_window_attributes_reply(get_conn(), xcb_get_window_attributes(get_conn(), window), nullptr);
-        auto client_geometry = process_x_geometry(get_conn(), window);
+        cx::x11::X11Resource win_attr = xcb_get_window_attributes_reply(c, xcb_get_window_attributes(c, window), nullptr);
+        auto client_geometry = process_x_geometry(c, window);
         DBGLOG("Client geometry: {},{} -- {}x{}", client_geometry->x(), client_geometry->y(), client_geometry->width, client_geometry->height);
-        if(created_before_wm) {
+        if(create_before_wm) {
             cx::println("Window was created before WM.");
             if(win_attr->override_redirect || win_attr->map_state != XCB_MAP_STATE_VIEWABLE) {
                 delete win_attr;
@@ -282,48 +303,57 @@ namespace cx
         }
 
         // construct frame
-        auto frame_id = xcb_generate_id(get_conn());
-        uint32_t values[2];
+        auto frame_id = xcb_generate_id(c);
+        uint32_t values[3];
         /* see include/xcb.h for the FRAME_EVENT_MASK */
-        uint32_t mask = XCB_CW_BORDER_PIXEL;
-        values[0] = inactive_windows.border_color;
-        mask |= XCB_CW_EVENT_MASK;
-        values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS |
-                    XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW;
 
-        cookies[0] = xcb_create_window_checked(get_conn(), 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
+        uint32_t mask = XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL;
+        values[0] = 0x4d4d33;
+
+        values[1] = inactive_windows.border_color;
+        mask |= XCB_CW_EVENT_MASK;
+        values[2] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_SUBSTRUCTURE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS |
+                    XCB_EVENT_MASK_SUBSTRUCTURE_NOTIFY | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW | XCB_EVENT_MASK_EXPOSURE |
+                    XCB_EVENT_MASK_PROPERTY_CHANGE;
+        cookies[0] = xcb_create_window_checked(c, 0, frame_id, get_root(), 0, 0, client_geometry->width, client_geometry->height,
                                                inactive_windows.border_width, XCB_WINDOW_CLASS_INPUT_OUTPUT, get_screen()->root_visual, mask, values);
 
-        cookies[1] = xcb_reparent_window_checked(get_conn(), window, frame_id, 0, 0);
-        auto tag = x11::get_client_wm_name(get_conn(), window);
+        cookies[1] = xcb_reparent_window_checked(c, window, frame_id, 0, configuration.frame_title_height);
+        auto tag = x11::get_client_wm_name(c, window);
+
         ws::Window win{client_geometry.value_or(geom::Geometry::window_default()), window, frame_id,
-                       ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}};
+                       ws::Tag{tag.value_or("cxw_" + std::to_string(window)), focused_ws->m_id}, configuration};
         if(!focused_ws) {
             DBGLOG("No workspace container was created. {}!", "Error");
             std::abort();
         }
         if(auto configure_command = focused_ws->register_window(win); configure_command) {
-            configure_command->perform(get_conn());
-            cookies[2] = xcb_map_window_checked(get_conn(), frame_id);
-            cookies[3] = xcb_map_subwindows_checked(get_conn(), frame_id);
-            cookies[4] = xcb_grab_button_checked(get_conn(), 1, window, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
-                                                 XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, xkm::SUPER_SHIFT);
-            cookies[5] = xcb_grab_button_checked(get_conn(), 1, frame_id, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_ASYNC, XCB_GRAB_MODE_ASYNC,
-                                                 XCB_NONE, XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_ANY);
+            execute(&configure_command.value());
+            cookies[2] = xcb_map_window_checked(c, frame_id);
+            cookies[3] = xcb_map_subwindows_checked(c, frame_id);
+            cookies[5] = xcb_grab_button_checked(c, 1, frame_id, XCB_EVENT_MASK_BUTTON_PRESS, XCB_GRAB_MODE_SYNC, XCB_GRAB_MODE_ASYNC, get_root(),
+                                                 XCB_NONE, XCB_BUTTON_INDEX_1, XCB_MOD_MASK_ANY);
             process_request(cookies[0], win, [](auto w) { cx::println("Failed to create X window/frame"); });
             process_request(cookies[1], win, [](auto w) { cx::println("Re-parenting window {} to frame {} failed", w.client_id, w.frame_id); });
             process_request(cookies[2], win, [](auto w) { cx::println("Failed to map frame {}", w.frame_id); });
             process_request(cookies[3], win, [](auto w) { cx::println("Failed to map sub-windows of frame {} -> {}", w.frame_id, w.client_id); });
             process_request(cookies[4], win, [](auto w) { cx::println("Failed button grab on window {}", w.client_id); });
-            process_request(cookies[4], win, [](auto w) { cx::println("Failed button grab on frame {}", w.frame_id); });
+            process_request(cookies[5], win, [](auto w) { cx::println("Failed button grab on frame {}", w.frame_id); });
         } else {
             cx::println("FOUND NO LAYOUT ATTRIBUTES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         }
 
+        auto font_gc = x11::get_font_gc(c, frame_id, 0x000000, (u32)configuration.background_color, "7x13");
+        auto text_extents_cookie = xcb_query_text_extents(c, font_gc.value(), tag->length(), reinterpret_cast<const xcb_char2b_t*>(tag->c_str()));
+        cx::x11::X11Resource text_extents = xcb_query_text_extents_reply(c, text_extents_cookie, nullptr);
+        auto [x_pos, y_pos] = cx::draw::utils::align_vertical_middle_left_of(text_extents, client_geometry->width, configuration.frame_title_height);
+        xcb_image_text_8(c, tag->length(), frame_id, font_gc.value(), x_pos, y_pos, tag->c_str());
+        int v[1]{XCB_EVENT_MASK_PROPERTY_CHANGE};
+        xcb_change_window_attributes(c, window, XCB_CW_EVENT_MASK, v);
+
         client_to_frame_mapping[window] = frame_id;
         frame_to_client_mapping[frame_id] = window;
-        x11::setup_mouse_button_request_handling(get_conn(), window);
-        delete win_attr;
+        // x11::setup_mouse_button_request_handling(c, window);
     }
 
     auto Manager::unframe_window(const ws::Window& w, bool destroy_client) -> void
@@ -338,26 +368,6 @@ namespace cx
         frame_to_client_mapping.erase(w.frame_id);
     }
 
-    auto Manager::configure_window_geometry(const ws::Window& window) -> void
-    {
-        namespace xcm = xcb_config_masks;
-        const auto& [x, y, width, height] = window.geometry.xcb_value_list();
-        auto frame_properties = xcm::TELEPORT;
-        auto child_properties = xcm::RESIZE;
-        // cx::uint frame_values[] = {x, y, width, m_tree_height};
-        cx::uint child_values[] = {(cx::uint)width, (cx::uint)height};
-        // TODO: Fix so that borders show up on the right side and bottom side of windows.
-        cx::uint frame_vals[]{(cx::uint)x, (cx::uint)y, (cx::uint)width, (cx::uint)height};
-
-        auto cookies =
-            CONFIG_CX_WINDOW(window, frame_properties, window.geometry.xcb_value_list_border_adjust(1).data(), child_properties, child_values);
-        for(const auto& cookie : cookies) {
-            if(auto err = xcb_request_check(get_conn(), cookie); err) {
-                DBGLOG("Failed to configure item {}. Error code: {}", err->resource_id, err->error_code);
-            }
-        }
-    }
-
     // The event loop
     auto Manager::event_loop() -> void
     {
@@ -365,65 +375,110 @@ namespace cx
         setup_input_functions();
         this->m_running = true;
         const auto& c = get_conn();
+        auto xfd = xcb_get_file_descriptor(c);
         while(m_running) {
-            auto evt = xcb_wait_for_event(get_conn());
-            if(evt == nullptr) {
-                // do something else
-                // TODO: complete hack. It is for formatting purposes *only*. clang-format slugs it out the rest
-                // to far otherwise
-                continue;
+            xcb_allow_events(c, XCB_ALLOW_REPLAY_POINTER, XCB_CURRENT_TIME);
+            auto ev = xcb_poll_for_event(c);
+            if(ev == nullptr) {
+                epoll_event event_list[10];
+                auto event_count = epoll_wait(this->epoll_fd, event_list, 10, -1);
+                if(event_count == -1) {
+                    cx::println("Epoll error. Abort. Abort. Abort");
+                    m_running = false;
+                } else {
+                    for(auto index = 0; index < event_count; index++) {
+                        if(event_list[index].data.fd != xfd) { // we let our poll in the top of the while loop handle it in next iteration
+                            if(event_list[index].events & EPOLLRDHUP) {
+                                ipc_interface->drop_client(event_list[index].data.fd);
+                            } else {
+                                handle_file_descriptor_event(event_list[index].data.fd);
+                            }
+                        }
+                    }
+                }
             } else {
-                switch(evt->response_type /*& ~0x80 = 127 = 0b01111111*/) {
-                case XCB_MAP_REQUEST: {
-                    handle_map_request((xcb_map_request_event_t*)(evt));
-                    break;
-                }
-                case XCB_MAP_NOTIFY: {
-                    break;
-                }
-                case XCB_UNMAP_NOTIFY:
-                    handle_unmap_request((xcb_unmap_window_request_t*)evt);
-                    break;
-                case XCB_CONFIGURE_REQUEST: {
-                    handle_config_request((xcb_configure_request_event_t*)evt);
-                    break;
-                }
-                case XCB_BUTTON_PRESS: {
-                    auto e = (xcb_button_press_event_t*)evt;
-                    auto id = (e->event == x_detail.root_window) ? e->child : e->event;
-                    if(auto cmd = focused_ws->focus_client_with_xid(id); cmd) {
-                        // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
-                        execute(&cmd.value());
-                    } else {
-                        status_bar->clicked_workspace(id, [this](auto workspace_id) { this->change_workspace(workspace_id); });
-                    }
-                    break;
-                }
-                case XCB_BUTTON_RELEASE:
-                    break;
-                case XCB_KEY_PRESS:
-                    handle_key_press((xcb_key_press_event_t*)evt);
-                    break;
-                case XCB_MAPPING_NOTIFY: // alerts us if a *key mapping* has been done, NOT a window one
-                    break;
-                case XCB_MOTION_NOTIFY: // We just fall through all these for now, since we don't do anything right now anyway
-                    break;
-                case XCB_CLIENT_MESSAGE: // TODO(implement) XCB_CLIENT_MESSAGE:
-                    break;
-                case XCB_CONFIGURE_NOTIFY: // TODO(implement) XCB_CONFIGURE_NOTIFY
-                    break;
-                case XCB_KEY_RELEASE: // TODO(implement)? XCB_KEY_RELEASE
-                    break;
-                case XCB_EXPOSE:
-                    auto e = (xcb_expose_event_t*)evt;
-                    if(status_bar->has_child(e->window)) {
-                        status_bar->draw();
-                    }
-                    break; // TODO(implement) XCB_EXPOSE
-                }
+                handle_generic_event(ev);
+                delete ev;
             }
         }
     }
+
+    auto Manager::handle_file_descriptor_event(int fd) -> void
+    {
+        if(ipc_interface->is_connection_request(fd)) {
+            ipc_interface->handle_incoming_connection();
+        } else {
+            ipc_interface->read_from_input(fd);
+        }
+    }
+
+    auto Manager::handle_generic_event(xcb_generic_event_t* evt) -> void
+    {
+        switch(evt->response_type /*& ~0x80 = 127 = 0b01111111*/) {
+        case XCB_MAP_REQUEST: {
+            handle_map_request((xcb_map_request_event_t*)(evt));
+            break;
+        }
+        case XCB_MAP_NOTIFY: {
+            break;
+        }
+        case XCB_UNMAP_NOTIFY:
+            handle_unmap_request((xcb_unmap_window_request_t*)evt);
+            break;
+        case XCB_CONFIGURE_REQUEST: {
+            handle_config_request((xcb_configure_request_event_t*)evt);
+            break;
+        }
+        case XCB_BUTTON_PRESS: {
+
+            auto e = (xcb_button_press_event_t*)evt;
+            cx::println("Button press caught for {} - {} - {}", e->root, e->event, e->child);
+            auto id = (e->event == x_detail.root_window) ? e->child : e->event;
+            if(auto cmd = focused_ws->focus_client_with_xid(id); cmd) {
+                // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
+                execute(&cmd.value());
+            } else {
+                status_bar->clicked_workspace(id, [this](auto workspace_id) { this->change_workspace(workspace_id); });
+            }
+            break;
+        }
+        case XCB_BUTTON_RELEASE:
+            break;
+        case XCB_KEY_PRESS:
+            handle_key_press((xcb_key_press_event_t*)evt);
+            break;
+        case XCB_MAPPING_NOTIFY: // alerts us if a *key mapping* has been done, NOT a window one
+            break;
+        case XCB_MOTION_NOTIFY: // We just fall through all these for now, since we don't do anything right now anyway
+            break;
+        case XCB_CLIENT_MESSAGE: // TODO(implement) XCB_CLIENT_MESSAGE:
+            break;
+        case XCB_CONFIGURE_NOTIFY: // TODO(implement) XCB_CONFIGURE_NOTIFY
+            break;
+        case XCB_KEY_RELEASE: // TODO(implement)? XCB_KEY_RELEASE
+            break;
+        case XCB_EXPOSE: {
+            auto e = (xcb_expose_event_t*)evt;
+            if(status_bar->has_child(e->window)) {
+                status_bar->draw();
+            } else {
+                handle_expose_event(e);
+            }
+            break; // TODO(implement) XCB_EXPOSE
+        }
+        case XCB_PROPERTY_NOTIFY: {
+            auto e = (xcb_property_notify_event_t*)evt;
+            if(e->atom == XCB_ATOM_WM_NAME) {
+                cx::println("WM Name changed");
+                auto c = get_conn();
+                focused_ws->find_window_then(e->window,
+                                             [c](auto& window) { window.draw_title(c, x11::get_client_wm_name(c, window.client_id)); });
+            }
+            break;
+        }
+        }
+    }
+
     auto Manager::add_workspace(const std::string& workspace_tag, std::size_t screen_number) -> void
     {
         auto status_bar_height = 25;
@@ -498,19 +553,13 @@ namespace cx
         if(ws_id < m_workspaces.size()) {
             auto c = get_conn();
             focused_ws->unmap_workspace([&c](xcb_window_t window) {
-                auto cookie = xcb_unmap_window(c, window);
-                if(auto err = xcb_request_check(c, cookie); err) {
-                    cx::println("Failed to unmap window {}. Error code: {}", window, err->error_code);
-                }
+                xcb_unmap_window(c, window);
             });
             focused_ws = m_workspaces[ws_id].get();
             focused_ws->map_workspace([&c](xcb_window_t window) {
-                auto cookie = xcb_map_window_checked(c, window);
-                if(auto err = xcb_request_check(c, cookie); err) {
-                    cx::println("Failed to map window {}. Error code: {}", window, err->error_code);
-                }
+                xcb_map_window(c, window);
             });
-
+            xcb_flush(get_conn());
         } else {
             cx::println("There is no workspace with id {}", ws_id);
         }
@@ -526,19 +575,41 @@ namespace cx
     void Manager::execute(commands::ManagerCommand* cmd)
     {
         cx::println("Executing command {}", cmd->command_name());
+        cmd->request_state(this);
         cmd->perform(get_conn());
+    }
+    ws::Window Manager::focused_window() const { return focused_ws->focused().client.value(); }
+    const cfg::Configuration& Manager::get_config() const { return configuration; }
+    void Manager::handle_expose_event(xcb_expose_event_t* pEvent)
+    {
+        const auto& c = get_conn();
+        if(auto con = focused_ws->find_window(pEvent->window); con) {
+            auto tag = x11::get_client_wm_name(c, con.value()->client.value().client_id);
+            con.value()->client.value().m_tag.m_tag = tag.value();
+            auto window = con.value()->client.value();
+            auto font_gc = x11::get_font_gc(c, pEvent->window, 0x000000, (u32)configuration.background_color, "7x13");
+            auto text_extents_cookie = xcb_query_text_extents(c, font_gc.value(), window.m_tag.m_tag.length(),
+                                                              reinterpret_cast<const xcb_char2b_t*>(window.m_tag.m_tag.c_str()));
+            cx::x11::X11Resource text_extents = xcb_query_text_extents_reply(c, text_extents_cookie, nullptr);
+            auto [x_pos, y_pos] =
+                cx::draw::utils::align_vertical_middle_left_of(text_extents, window.geometry.width, configuration.frame_title_height);
+            auto cookie_text =
+                xcb_image_text_8_checked(c, window.m_tag.m_tag.length(), window.frame_id, font_gc.value(), x_pos, y_pos, window.m_tag.m_tag.c_str());
+
+            if(auto error = xcb_request_check(c, cookie_text); error) {
+                cx::println("Could not draw text '{}' in window {}", window.m_tag.m_tag, window.frame_id);
+            }
+        }
     }
 
     auto process_x_geometry(xcb_connection_t* c, xcb_window_t window) -> std::optional<geom::Geometry>
     {
-        if(auto reply = xcb_get_geometry_reply(c, xcb_get_geometry(c, window), nullptr); reply) {
+        if(cx::x11::X11Resource reply = xcb_get_geometry_reply(c, xcb_get_geometry(c, window), nullptr); reply) {
             auto res = geom::Geometry{static_cast<geom::GU>(reply->x), static_cast<geom::GU>(reply->y), static_cast<geom::GU>(reply->width),
                                       static_cast<geom::GU>(reply->height)};
-            delete reply;
             return res;
         } else {
             return {};
         }
     }
-    void unmap(const ws::Window& w, xcb_connection_t* c) {}
 } // namespace cx

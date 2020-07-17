@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <xcom/xinit.hpp>
+#include <xcom/utility/xinit.hpp>
 
 namespace cx::x11::gfx {
 

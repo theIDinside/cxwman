@@ -2,7 +2,7 @@
 // Created by cx on 2020-06-19.
 //
 #include <coreutils/core.hpp>
-#include <xcom/xinit.hpp>
+#include <xcom/utility/xinit.hpp>
 
 namespace cx::x11
 {
@@ -37,7 +37,7 @@ namespace cx::x11
         }
 
         auto root_geometry = xcb_get_geometry(conn, window);
-        auto g_reply = xcb_get_geometry_reply(conn, root_geometry, nullptr);
+        cx::x11::X11Resource g_reply = xcb_get_geometry_reply(conn, root_geometry, nullptr);
         if(!g_reply) {
             cx::println("Failed to get geometry of root window. Exiting");
             std::abort();
@@ -95,39 +95,20 @@ namespace cx::x11
 
     auto get_client_wm_name(XCBConn* c, xcb_window_t window) -> std::optional<std::string>
     {
-        auto test_cookie = xcb_get_property(c, 0, window, XCB_ATOM_FULL_NAME, XCB_ATOM_STRING, 0, 100);
-        auto test_rep = xcb_get_property_reply(c, test_cookie, nullptr);
-        auto test_length = xcb_get_property_value_length(test_rep);
-        if(test_length <= 0) {
-            cx::println("COULD NOT GET FULL NAME");
-            free(test_rep);
-        } else {
-            auto start = (const char*)xcb_get_property_value(test_rep);
-            std::string_view s{start, (std::size_t)test_length};
-            DBGLOG("WM_NAME Length: {} Data: [{}]", test_length, s);
-            auto result = std::string{s};
-            free(test_rep);
-            return result;
-        }
-
         auto prop_cookie = xcb_get_property(c, 0, window, XCB_ATOM_WM_NAME, XCB_ATOM_STRING, 0, 45);
-        if(auto prop_reply = xcb_get_property_reply(c, prop_cookie, nullptr); prop_reply) {
+        if(cx::x11::X11Resource prop_reply = xcb_get_property_reply(c, prop_cookie, nullptr); prop_reply) {
             auto str_length = xcb_get_property_value_length(prop_reply);
             if(str_length <= 0) {
                 DBGLOG("Failed to get WM_NAME due to length being == {}", str_length);
-                free(prop_reply);
                 return {};
             } else {
                 auto start = (const char*)xcb_get_property_value(prop_reply);
                 std::string_view s{start, (std::size_t)str_length};
-                DBGLOG("WM_NAME Length: {} Data: [{}]", str_length, s);
                 auto result = std::string{s};
-                free(prop_reply);
                 return result;
             }
         } else {
             DBGLOG("Failed to request WM_NAME for window {}", window);
-            free(prop_reply);
             return {};
         }
     }

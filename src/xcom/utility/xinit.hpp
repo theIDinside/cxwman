@@ -15,6 +15,9 @@
 // System X11
 #include <X11/keysym.h>
 #include <X11/keysymdef.h>
+#include "raii.hpp"
+
+
 
 #define CXGRABMODE XCB_GRAB_MODE_ASYNC
 
@@ -119,7 +122,8 @@ namespace cx::x11
         std::array<xcb_atom_t, N> atoms{};
         std::transform(std::begin(names), std::begin(names) + N, std::begin(atoms), [c](auto str) {
             auto cookie = xcb_intern_atom(c, 0, str.size(), str.data());
-            return xcb_intern_atom_reply(c, cookie, nullptr)->atom;
+            cx::x11::X11Resource resource = xcb_intern_atom_reply(c, cookie, nullptr);
+            return resource->atom;
         });
         return atoms;
     }

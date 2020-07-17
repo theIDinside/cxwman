@@ -54,7 +54,7 @@ namespace cx::x11::draw
         auto gc = get_font_gc(da).value();
 
         auto cookie_fInfo = xcb_query_text_extents(c, gc, text.length(), reinterpret_cast<const xcb_char2b_t*>(text.data()));
-        auto font_info = xcb_query_text_extents_reply(c, cookie_fInfo, nullptr);
+        cx::x11::X11Resource font_info = xcb_query_text_extents_reply(c, cookie_fInfo, nullptr);
         auto ascent = 0;
         auto txt_img_width = 0;
         if(font_info) {
@@ -62,7 +62,6 @@ namespace cx::x11::draw
             txt_img_width = font_info->overall_width;
             cx::println("Font ascent found. Value: {}. Text image width: {}", ascent, txt_img_width);
         }
-        free(font_info);
         const auto& g = da.clip_region;
         auto cookie_text = xcb_image_text_8_checked(c, text.length(), da.surface, gc, g.x() + (g.width - txt_img_width) / 2,
                                                     g.y() + ascent + (g.height - ascent) / 2, text.data());

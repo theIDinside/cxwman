@@ -23,18 +23,6 @@ namespace cx::workspace
 
     constexpr auto is_window_predicate = [](auto t) { return t->is_window(); };
 
-    struct SplitConfigurations {
-        SplitConfigurations() noexcept : existing_window{}, new_window{}
-        {
-            existing_window.reset();
-            new_window.reset();
-        }
-        SplitConfigurations(Window existing, Window new_window) noexcept : existing_window(existing), new_window(new_window) {}
-        explicit SplitConfigurations(Window new_window) noexcept : existing_window{}, new_window{new_window} { existing_window.reset(); }
-        std::optional<Window> existing_window;
-        std::optional<Window> new_window;
-    };
-
     struct Workspace {
         using Pos = geom::Position;
         using TreeOwned = ContainerTree::TreeOwned;
@@ -63,6 +51,10 @@ namespace cx::workspace
         auto unregister_window(ContainerTree* t) -> void;
         /// Searches the ContainerTree in order, for a window with the id of xwin
         auto find_window(xcb_window_t xwin) -> std::optional<ContainerTree*>;
+        template <typename Fn>
+        auto find_window_then(xcb_window_t xwin, Fn then) -> void {
+            find_window_and_then(m_root, xwin, then);
+        }
         /// Traverses the ContainerTree for this workspace in order, and calls xcb_configure for each window with
         /// the properties stored in each ws::Window, updating the display so that any and all changes made, will show up on screen
         auto display_update(xcb_connection_t* c) -> void;
@@ -72,8 +64,6 @@ namespace cx::workspace
         void rotate_focus_pair() const;
         // This moves this window from it's anchor, in vector's dir.
         auto move_focused(geom::ScreenSpaceDirection dir) -> commands::MoveWindow;
-        /// Changes the currently focused() item to it's sibling (or root if no sibling exists)
-        void focus_pointer_to_sibling();
         /// Increases width or height of window, in all four directions, depending on the parameter arg
         auto increase_size_focused(cx::events::ResizeArgument arg) -> commands::UpdateWindows;
         /// Decreases width or height of window, in all four directions, depending on the parameter arg
@@ -115,12 +105,6 @@ namespace cx::workspace
                 DBGLOG("Mapping window {}", "");
                 fn(window.frame_id);
             });
-        }
-
-        template<typename XCBMapFn>
-        void apply_frame_attributes(XCBMapFn fn)
-        {
-            in_order_window_map(m_root, [fn](auto window) { fn(window.frame_id); });
         }
     };
 } // namespace cx::workspace

@@ -3,6 +3,9 @@
 //
 
 #include "status_bar.hpp"
+#include "configuration.hpp"
+#include <xcom/utility/drawing/util.h>
+#include <xcom/utility/raii.hpp>
 namespace cx::workspace
 {
     StatusBar::StatusBar(xcb_connection_t* c, xcb_window_t assigned_id, geom::Geometry assigned_geometry,
@@ -40,16 +43,10 @@ namespace cx::workspace
         // close graphics context
         auto label = std::to_string(workspace_id);
         auto extents_cookie = xcb_query_text_extents(c, draw_props, label.length(), reinterpret_cast<const xcb_char2b_t*>(label.c_str()));
-        auto txt_extents = xcb_query_text_extents_reply(c, extents_cookie, nullptr);
+        cx::x11::X11Resource txt_extents = xcb_query_text_extents_reply(c, extents_cookie, nullptr);
         if(txt_extents) {
-            auto half_width = txt_extents->overall_width / 2;
-            auto half_box_width = box_width / 2;
-            auto x_pos = half_box_width - half_width;
-
-            auto half_height = txt_extents->overall_ascent / 2;
-            auto half_box_height = box_height / 2;
-            auto y_pos = half_box_height + half_height;
-            auto cookie_text = xcb_image_text_8_checked(c, label.length(), this->button_id, this->draw_props, x_pos, y_pos, label.c_str());
+            auto [x_pos, y_pos] = cx::draw::utils::align_text_center_of(txt_extents, box_width, box_height);
+            auto cookie_text = xcb_image_text_8_checked(c, label.length(), button_id, draw_props, x_pos, y_pos, label.c_str());
             if(auto error = xcb_request_check(c, cookie_text); error) {
                 cx::println("Could not draw text '{}' in window {}", label, this->button_id);
             }
@@ -66,18 +63,21 @@ namespace cx::workspace
     {
     }
 
-    SysBar make_system_bar(xcb_connection_t* c, xcb_screen_t* screen, std::size_t workspace_count, geom::Geometry sys_bar_geometry)
+    SysBar make_system_bar(xcb_connection_t* c, xcb_screen_t* screen, std::size_t workspace_count, geom::Geometry sys_bar_geometry,
+                           const cx::cfg::Configuration& wmcfg)
     {
         auto sys_bar_id = xcb_generate_id(c);
         const auto& [x, y, width, height] = sys_bar_geometry.xcb_value_list();
-        uint32_t values[2];
+        uint32_t values[3];
 
-        uint32_t mask = XCB_CW_BORDER_PIXEL;
-        values[0] = 0xff12ab;
+
+        uint32_t mask = XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL;
+        values[0] = wmcfg.background_color;
+        values[1] = 0xff12ab;
         mask |= XCB_CW_EVENT_MASK;
         // We want to set OVERRIDE_REDIRECT, as we don't actually want to handle framing of the Status bar or it's subwindows (which in this case are
         // buttons)
-        values[1] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_CW_OVERRIDE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_ENTER_WINDOW |
+        values[2] = (cx::u32)XCB_EVENT_MASK_KEY_PRESS | XCB_CW_OVERRIDE_REDIRECT | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_ENTER_WINDOW |
                     XCB_EVENT_MASK_LEAVE_WINDOW | XCB_EVENT_MASK_EXPOSURE;
         auto ck_sysbar_create = xcb_create_window_checked(c, XCB_COPY_FROM_PARENT, sys_bar_id, screen->root, x, y, width, height, 1,
                                                           XCB_WINDOW_CLASS_INPUT_OUTPUT, screen->root_visual, mask, values);
@@ -97,13 +97,13 @@ namespace cx::workspace
         auto black = 0x000000;
         auto white = 0xffffff;
 
-        auto active_draw_prop = x11::get_font_gc(c, screen, sys_bar_id, 0x000000, (u32)green, "7x13");
-        auto inactive_drawprop = x11::get_font_gc(c, screen, sys_bar_id, 0x000000, (u32)blue, "7x13");
+        auto active_draw_prop = x11::get_font_gc(c, sys_bar_id, 0x000000, (u32)green, "7x13");
+        auto inactive_drawprop = x11::get_font_gc(c, sys_bar_id, 0x000000, (u32)blue, "7x13");
         auto x_anchor = 0;
 
         auto box_masks = XCB_CW_BACK_PIXEL | mask;
-        u32 inactive_box_values[]{(u32)blue, values[0], values[1]};
-        u32 active_box_values[]{(u32)green, values[0], values[1]};
+        u32 inactive_box_values[]{(u32)blue, values[1], values[2]};
+        u32 active_box_values[]{(u32)green, values[1], values[2]};
         xcb_window_t awin;
         for(auto i = 0; i < workspace_count; i++) {
             auto id = xcb_generate_id(c);
