@@ -39,7 +39,6 @@ namespace cx::workspace
         cx::geom::Geometry geometry;
         std::map<xcb_window_t, std::unique_ptr<WorkspaceBox>> items;
         std::size_t active_workspace;
-
       public:
         // one-time initialize the graphics contexts
         // application window id

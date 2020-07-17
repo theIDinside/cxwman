@@ -72,7 +72,7 @@ namespace cx::workspace
 
 
         uint32_t mask = XCB_CW_BACK_PIXEL | XCB_CW_BORDER_PIXEL;
-        values[0] = wmcfg.background_color;
+        values[0] = wmcfg.status_bar_background_color;
         values[1] = 0xff12ab;
         mask |= XCB_CW_EVENT_MASK;
         // We want to set OVERRIDE_REDIRECT, as we don't actually want to handle framing of the Status bar or it's subwindows (which in this case are
@@ -90,12 +90,8 @@ namespace cx::workspace
         }
 
         std::vector<WBox> workspace_boxes{};
-        auto active_fg = 0x1177ff;
-        auto red = 0xff0000;
         auto green = 0x00ff00;
         auto blue = 0x0000ff;
-        auto black = 0x000000;
-        auto white = 0xffffff;
 
         auto active_draw_prop = x11::get_font_gc(c, sys_bar_id, 0x000000, (u32)green, "7x13");
         auto inactive_drawprop = x11::get_font_gc(c, sys_bar_id, 0x000000, (u32)blue, "7x13");
