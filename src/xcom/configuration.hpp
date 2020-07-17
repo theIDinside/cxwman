@@ -17,7 +17,8 @@ namespace cx::cfg {
       public:
         Configuration();
         StateColor borders;
-        int background_color;
+        int frame_background_color;
         int frame_title_height;
+        int status_bar_background_color;
     };
 }
