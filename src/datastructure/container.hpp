@@ -124,7 +124,6 @@ namespace cx::workspace
         if(!tree)
             return {};
         if(p(tree)) {
-            cx::println("Found window!");
             return tree.get();
         } else {
             if(auto res = tree_in_order_find(tree->left, p); res)
@@ -136,13 +135,12 @@ namespace cx::workspace
     }
 
     template<typename Predicate>
-    auto window_in_order_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<workspace::Window>
+    auto window_in_order_find(std::unique_ptr<ContainerTree>& tree, Predicate p) -> std::optional<workspace::Window*>
     {
         if(!tree)
             return {};
         if(tree->is_window() && p(tree)) {
-            cx::println("Found window!");
-            return tree->client;
+            return &(tree->client.value());
         } else {
             if(auto res = tree_in_order_find(tree->left, p); res)
                 return res;
