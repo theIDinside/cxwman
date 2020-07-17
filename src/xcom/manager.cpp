@@ -343,7 +343,7 @@ namespace cx
             cx::println("FOUND NO LAYOUT ATTRIBUTES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         }
 
-        auto font_gc = x11::get_font_gc(c, frame_id, 0x000000, (u32)configuration.background_color, "7x13");
+        auto font_gc = x11::get_font_gc(c, frame_id, 0x000000, (u32)configuration.frame_background_color, "7x13");
         auto text_extents_cookie = xcb_query_text_extents(c, font_gc.value(), tag->length(), reinterpret_cast<const xcb_char2b_t*>(tag->c_str()));
         cx::x11::X11Resource text_extents = xcb_query_text_extents_reply(c, text_extents_cookie, nullptr);
         auto [x_pos, y_pos] = cx::draw::utils::align_vertical_middle_left_of(text_extents, client_geometry->width, configuration.frame_title_height);
@@ -432,7 +432,6 @@ namespace cx
         case XCB_BUTTON_PRESS: {
 
             auto e = (xcb_button_press_event_t*)evt;
-            cx::println("Button press caught for {} - {} - {}", e->root, e->event, e->child);
             auto id = (e->event == x_detail.root_window) ? e->child : e->event;
             if(auto cmd = focused_ws->focus_client_with_xid(id); cmd) {
                 // if we didn't click any client handled by focused_ws, check if we clicked the sys bar
@@ -469,7 +468,6 @@ namespace cx
         case XCB_PROPERTY_NOTIFY: {
             auto e = (xcb_property_notify_event_t*)evt;
             if(e->atom == XCB_ATOM_WM_NAME) {
-                cx::println("WM Name changed");
                 auto c = get_conn();
                 focused_ws->find_window_then(e->window, [c](auto& window) { window.draw_title(c, x11::get_client_wm_name(c, window.client_id)); });
             }
@@ -582,7 +580,7 @@ namespace cx
             auto tag = x11::get_client_wm_name(c, con.value()->client.value().client_id);
             con.value()->client.value().m_tag.m_tag = tag.value();
             auto window = con.value()->client.value();
-            auto font_gc = x11::get_font_gc(c, pEvent->window, 0x000000, (u32)configuration.background_color, "7x13");
+            auto font_gc = x11::get_font_gc(c, pEvent->window, 0x000000, (u32)configuration.frame_background_color, "7x13");
             auto text_extents_cookie = xcb_query_text_extents(c, font_gc.value(), window.m_tag.m_tag.length(),
                                                               reinterpret_cast<const xcb_char2b_t*>(window.m_tag.m_tag.c_str()));
             cx::x11::X11Resource text_extents = xcb_query_text_extents_reply(c, text_extents_cookie, nullptr);
