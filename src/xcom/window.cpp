@@ -23,6 +23,7 @@ namespace cx::workspace
                                                           reinterpret_cast<const xcb_char2b_t*>(m_tag.m_tag.c_str()));
         cx::x11::X11Resource text_extents = xcb_query_text_extents_reply(c, text_extents_cookie, nullptr);
         auto [x_pos, y_pos] = cx::draw::utils::align_vertical_middle_left_of(text_extents, geometry.width, 16);
+        xcb_clear_area(c, 1, frame_id, 0, 0, geometry.width, this->configuration.frame_title_height);
         xcb_image_text_8(c, m_tag.m_tag.length(), frame_id, font_gc.value(), x_pos, y_pos, m_tag.m_tag.c_str());
         xcb_flush(c);
     }
