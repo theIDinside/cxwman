@@ -17,7 +17,8 @@ namespace cx::x11
         X11Resource(XCBType* type) : pointer_to_data(type) {}
         ~X11Resource()
         {
-            delete pointer_to_data;
+            if(pointer_to_data)
+                delete pointer_to_data;
         }
 
         XCBType* operator->() { return pointer_to_data; }
