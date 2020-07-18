@@ -4,7 +4,7 @@ build
 runctags.sh
 tags
 cxwbuild.sh
-dep
+dep/3rdparty
 .idea/
 nonrelated/
 .run/
